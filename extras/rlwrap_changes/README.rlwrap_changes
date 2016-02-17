@@ -1,0 +1,30 @@
+Modifications to rlwrap for SOLAR
+
+This makes most sense if you look at the "solar" script which runs
+solar with rlwrap if possible, and without rlwrap if necessary.  In
+this setup, we want the "rlwrap solarmain" to return error status only
+if rlwrap CANNOT be used, in which case the script will run solarmain
+directly.
+
+main.c: two changes
+
+If there is no standard input (e.g., this is a batch job) the original
+rlwrap took it upon itself to simply run the program (solarmain)
+without rlwrap.  We instead rely on the "solar" script to run the
+program directly if it cannot be run through rlwrap.  The problem with
+the original approach was that if the batch job terminated solar with
+error status (btw, this is not normal and hard to do, solar does not
+normally return any useful status to the shell) the job would then be
+re-executed by the script and run a second time.
+
+Another change is that if the program (solarmain) does happen to return
+error status, it is ignored, and rlwrap returns success to the shell, so
+solarmain is not run a second time (as above).
+
+signals.c:
+
+If an unexpected signal is received, the original version gave a very verbose
+message and terminated with error status.  I have simply removed the verbose
+message.  The error status causes solarmain to be run again by the script.
+So now all the user sees is that solar starts OK (one way or another).  This
+occurs in certain non-terminal environments, such as the emacs shell.

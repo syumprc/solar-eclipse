@@ -1,0 +1,131 @@
+.MAKE_VERSION:	VERSION-1.0
+.BUILT_LAST_MAKE_RUN:
+multipnt:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a /usr/lib/libm.a ../lib/libsafe.a 
+	gcc -static -s -O1 -o multipnt multipnt.o dgedifa.o -L../lib -lsafe  -lm
+domcibd.sh:
+	sccs  get -s domcibd.sh -Gdomcibd.sh
+../lib/pipeback.h:
+	sccs  get -s ../lib/pipeback.h -G../lib/pipeback.h
+.BUILT_LAST_MAKE_RUN:
+ibdmat.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/string.h /usr/include/iso/string_iso.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h
+.BUILT_LAST_MAKE_RUN:
+ibdmat.o:	/usr/include/unistd.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/sys/types.h /usr/include/sys/machtypes.h /usr/include/sys/int_types.h /usr/include/sys/select.h /usr/include/sys/time.h /usr/include/time.h /usr/include/iso/time_iso.h /usr/include/sys/time_impl.h /usr/include/sys/unistd.h 
+	gcc -static -O1 -I../lib  -c  ibdmat.c
+ibdmat.c:
+	sccs  get -s ibdmat.c -Gibdmat.c
+.BUILT_LAST_MAKE_RUN:
+ibdprep.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/string.h /usr/include/iso/string_iso.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/math.h
+.BUILT_LAST_MAKE_RUN:
+ibdprep.o:	/usr/include/iso/math_iso.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/floatingpoint.h /usr/include/sys/ieeefp.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/sys/types.h /usr/include/sys/machtypes.h /usr/include/sys/int_types.h /usr/include/sys/select.h /usr/include/sys/time.h /usr/include/time.h /usr/include/iso/time_iso.h /usr/include/sys/time_impl.h
+.BUILT_LAST_MAKE_RUN:
+ibdprep.o:	/usr/include/errno.h /usr/include/sys/errno.h 
+	gcc -static -O1 -I../lib  -c  ibdprep.c
+ibdprep.c:
+	sccs  get -s ibdprep.c -Gibdprep.c
+install:
+	for i in domcibd ibdprep ibdmat ibdmc allfreq relate getmeans multipnt mrgibd makeped unknown genfreq ; do ( /usr/sbin/install -f ../bin -o $i  ) ; done
+fgenfrq.f:
+	sccs  get -s fgenfrq.f -Gfgenfrq.f
+.BUILT_LAST_MAKE_RUN:
+ibdmc:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a /usr/lib/libm.a /export/home/usr/local/lib/libg2c.a /export/home/usr/local/lib/libfrtbegin.a 
+	g77 -static -s -O1 -o ibdmc ibdmc.o
+clean:
+	rm -f domcibd ibdprep ibdmat ibdmc allfreq relate getmeans multipnt mrgibd makeped unknown genfreq *.o
+.BUILT_LAST_MAKE_RUN:
+multipnt.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/string.h /usr/include/iso/string_iso.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h
+.BUILT_LAST_MAKE_RUN:
+multipnt.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/sys/types.h /usr/include/sys/machtypes.h /usr/include/sys/int_types.h /usr/include/sys/select.h /usr/include/sys/time.h /usr/include/time.h /usr/include/iso/time_iso.h /usr/include/sys/time_impl.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/math.h /usr/include/iso/math_iso.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/floatingpoint.h /usr/include/sys/ieeefp.h
+.BUILT_LAST_MAKE_RUN:
+multipnt.o:	../lib/pipeback.h 
+	gcc -static -O1 -I../lib  -c  multipnt.c
+.BUILT_LAST_MAKE_RUN:
+makeped:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/ctype.h /usr/include/iso/ctype_iso.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h
+.BUILT_LAST_MAKE_RUN:
+makeped:	/usr/include/string.h /usr/include/iso/string_iso.h /usr/lib/libdl.so.1 /usr/lib/libc.so /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a 
+	gcc -o makeped makeped.c
+multipnt.c:
+	sccs  get -s multipnt.c -Gmultipnt.c
+.BUILT_LAST_MAKE_RUN:
+mrgibd.o:	/usr/include/stdlib.h /usr/include/iso/stdlib_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h ../lib/pipeback.h 
+	gcc -static -O1 -I../lib  -c  mrgibd.c
+mrgibd.c:
+	sccs  get -s mrgibd.c -Gmrgibd.c
+.BUILT_LAST_MAKE_RUN:
+relate.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/string.h /usr/include/iso/string_iso.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h
+.BUILT_LAST_MAKE_RUN:
+relate.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/sys/types.h /usr/include/sys/machtypes.h /usr/include/sys/int_types.h /usr/include/sys/select.h /usr/include/sys/time.h /usr/include/time.h /usr/include/iso/time_iso.h /usr/include/sys/time_impl.h 
+	gcc -static -O1 -I../lib  -c  relate.c
+relate.c:
+	sccs  get -s relate.c -Grelate.c
+.BUILT_LAST_MAKE_RUN:
+allfreq.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/sys/types.h
+.BUILT_LAST_MAKE_RUN:
+allfreq.o:	/usr/include/sys/machtypes.h /usr/include/sys/int_types.h /usr/include/sys/select.h /usr/include/sys/time.h /usr/include/time.h /usr/include/iso/time_iso.h /usr/include/sys/time_impl.h 
+	gcc -static -O1 -I../lib  -c  allfreq.c
+.BUILT_LAST_MAKE_RUN:
+domcibd:
+	rm -f domcibd
+	cat domcibd.sh > domcibd
+	chmod +x domcibd
+allfreq.c:
+	sccs  get -s allfreq.c -Gallfreq.c
+fallfrq.o:
+	f77 -fast -c fallfrq.f
+fallfrq.f:
+	sccs  get -s fallfrq.f -Gfallfrq.f
+.BUILT_LAST_MAKE_RUN:
+genfreq:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a /usr/lib/libm.a /export/home/usr/local/lib/libg2c.a /export/home/usr/local/lib/libfrtbegin.a 
+	g77 -static -s -O1  -o genfreq allfreq.o fgenfrq.f
+.BUILT_LAST_MAKE_RUN:
+ibdprep:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a /usr/lib/libm.a ../lib/libsafe.a 
+	gcc -static -s -O1 -o ibdprep ibdprep.o -L../lib -lsafe -lm
+.BUILT_LAST_MAKE_RUN:
+mrgibd:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a ../lib/libsafe.a 
+	gcc -static -s -O1 -o mrgibd mrgibd.o -L../lib -lsafe
+.BUILT_LAST_MAKE_RUN:
+relate:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a 
+	gcc -static -s -O1 -o relate relate.o
+.BUILT_LAST_MAKE_RUN:
+allfreq:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a /usr/lib/libm.a /export/home/usr/local/lib/libg2c.a /export/home/usr/local/lib/libfrtbegin.a 
+	g77 -static -s -O1   -o allfreq allfreq.o fallfrq.f
+.BUILT_LAST_MAKE_RUN:
+ibdmc.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/string.h /usr/include/iso/string_iso.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h
+.BUILT_LAST_MAKE_RUN:
+ibdmc.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/sys/types.h /usr/include/sys/machtypes.h /usr/include/sys/int_types.h /usr/include/sys/select.h /usr/include/sys/time.h /usr/include/time.h /usr/include/iso/time_iso.h /usr/include/sys/time_impl.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/math.h /usr/include/iso/math_iso.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/floatingpoint.h /usr/include/sys/ieeefp.h
+.BUILT_LAST_MAKE_RUN:
+ibdmc.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/limits.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/syslimits.h /usr/include/iso/limits_iso.h /usr/include/sys/int_limits.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/float.h 
+	gcc -static -O1 -I../lib  -c  ibdmc.c
+ibdmc.c:
+	sccs  get -s ibdmc.c -Gibdmc.c
+.BUILT_LAST_MAKE_RUN:
+unknown.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h /usr/include/string.h /usr/include/iso/string_iso.h
+.BUILT_LAST_MAKE_RUN:
+unknown.o:	/usr/include/sys/time.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/sys/types.h /usr/include/sys/machtypes.h /usr/include/sys/int_types.h /usr/include/sys/select.h /usr/include/time.h /usr/include/iso/time_iso.h /usr/include/sys/time_impl.h 
+	gcc -static -O1 -I../lib  -c  unknown.c
+unknown.c:
+	sccs  get -s unknown.c -Gunknown.c
+makeped.c:
+	sccs  get -s makeped.c -Gmakeped.c
+.BUILT_LAST_MAKE_RUN:
+dgedifa.o:
+	g77 -static -O1 -finit-local-zero  -c  dgedifa.f
+.BUILT_LAST_MAKE_RUN:
+ibdmat:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a 
+	gcc -static -s -O1 -o ibdmat ibdmat.o
+dgedifa.f:
+	sccs  get -s dgedifa.f -Gdgedifa.f
+.BUILT_LAST_MAKE_RUN:
+getmeans.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdarg.h /usr/include/iso/stdio_iso.h /usr/include/sys/feature_tests.h /usr/include/sys/isa_defs.h /usr/include/sys/va_list.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/stdio_tag.h /usr/include/stdio_impl.h /usr/include/string.h /usr/include/iso/string_iso.h /usr/include/stdlib.h /usr/include/iso/stdlib_iso.h
+.BUILT_LAST_MAKE_RUN:
+getmeans.o:	/export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/math.h /usr/include/iso/math_iso.h /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/include/floatingpoint.h /usr/include/sys/ieeefp.h ../lib/pipeback.h 
+	gcc -static -O1 -I../lib  -c  getmeans.c
+getmeans.c:
+	sccs  get -s getmeans.c -Ggetmeans.c
+Makefile:
+	sccs  get -s Makefile -GMakefile
+.BUILT_LAST_MAKE_RUN:
+unknown:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a 
+	gcc -static -s -O1 -o unknown unknown.o
+.BUILT_LAST_MAKE_RUN:
+getmeans:	/usr/lib/libc.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc_eh.a /export/home/usr/local/lib/gcc/sparc-sun-solaris2.9/3.4.6/libgcc.a /usr/lib/libm.a ../lib/libsafe.a 
+	gcc -static -s -O1 -o getmeans getmeans.o -L../lib -lsafe -lm

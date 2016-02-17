@@ -1,0 +1,7 @@
+This directory includes the modified XMGR source files used in SOLAR.
+As a pre-compiled XMGR is now included with every standard SOLAR distribution,
+it is not required for most users, but is included in case the user wishes
+to further modify XMGR on their own.
+
+The two files should be copied to the src directory of the xmgr-4.1.2
+distribution before doing 'make.'

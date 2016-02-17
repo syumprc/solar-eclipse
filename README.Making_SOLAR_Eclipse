@@ -1,0 +1,188 @@
+		      How to Make SOLAR Eclipse
+
+    SOLAR Eclipse consists of a number of binary executables, a large file
+    of essential scripts (solar.tcl), and some text and documentation files.
+
+    For a new native system installation or distribution, it is
+    necessary to compile the binaries, though most of the binaries
+    (except solarmain) change so infrequently and are so portable
+    re-compilation is rarely needed after that.  The binaries are in 4
+    categories:
+
+        1. solarmain: the main program of SOLAR
+	2. ibd-src:   small programs used for pedigrees, markers, and maps
+	3. fastlink-src: mlink from FASTLINK
+        4. extras: homo, arrangeps.py, xmgr, stringplotk, rlwrap
+
+    Compilation of binaries in each of these categories is a separate
+    user step.  Most new versions only require compilation of
+    solarmain.
+
+
+    1.  Compiling solarmain
+
+    Compilation of solarmain involves running make on the selected
+    Makefile in the src directory (which is the src directory for
+    solarmain only).  However before solarmain can be compiled, it is
+    necessary to provide a number of other libraries must be built.
+
+    a.  safelib
+
+    safelib is a few C routines located in the lib subdirectory.  These
+    are highly portable and compiled with the command "make" using the
+    Makefile also in the lib subdirectory of the source distribution.
+
+    b.  Tcl 8.4.12
+
+    solarmain requires a specific version of the Tcl libraries because
+    later versions changed so as to be incompatible.  First obtain the
+    Tcl source for version 8.4.12.  The goal will be to create the Tcl
+    static libraries (libtcl8.4.a and libtclstub8.4.a), not tclsh.
+    solarmain will be linked to the Tcl libraries.
+
+    Once the Tcl source archive is unpacked, CD to the unix directory.
+    There give these commands:
+
+        mkdir ../test
+	./configure --enable-64bit --prefix ../test --exec-prefix ../test --disable-shared
+	make
+
+    When finished, files should be copied to the "test" directory
+    created (instead of being stored to system directories, which
+    would happen without the prefix arguments).  These files should be
+    copied from there into the SOLAR lib directory:
+
+        libtcl8.4.a
+        libtclstub8.4.a
+	tclDecls.h
+	tclPlatDecls.h
+	tcl.h
+
+    In addition there is a fixed directory in the Tcl source distribution
+    called "library".  Before SOLAR can be executed, that library must be
+    copied (recursively) to a directory named tcl8.4 in the SOLAR lib
+    directory.  And the default auto.tcl in that directory should be replaced
+    by the file in the SOLAR lib directory called auto.tcl.solar:
+
+        [cd to SOLAR lib directory]
+        cp auto.tcl.solar tcl8.4/auto.tcl
+
+
+    c.  NIFTI imaging libraries
+
+    The NIFTI imaging libraries are required only if your are using
+    the imaging features of SOLAR, such as the "voxel" and "mask"
+    commands.  SOLAR can be compiled without these features by
+    defining the following symbol:
+
+        NO_RICVOLUMESET
+
+    Which is done my including this option in the CPPFLAGS: -DNO_RICVOLUMESET
+
+    Currently only the 64 bit linux distributions are compiled with NIFTI;
+    Mac and PC versions don't have it and we do not have Mac and PC versions
+    of the libraries either.
+
+    The source distribution provides the NIFTI libraries statically
+    pre-compiled for linux, which was the way they were provided to
+    us by Peter Kochunov.  We cannot provide source as we don't have
+    the latest source, and when we did have source we couldn't get it
+    to compile correctly anyway.  These libraries are from different
+    sources but must be matching or compatible versions, and we think that
+    had been our problem.  The libraries required are:
+
+        libznz
+        libRicVolumed
+	libNemaVolumed
+	libfslio
+	libniftiio
+	libnifticdf
+	libz
+
+
+    d.  TR1/C++0x/C++11
+
+    SOLAR requires several new features from C++11, however none of
+    compilers we use are full C++11 versions yet.  GCC version 4.4.1 or
+    later can use the interim definition C++0x by including this line in
+    the makefile
+
+         CPPFLAGS = -std=c++0x
+
+     Compilers older than 4.4.1 can use the temporary TR1 update by defining
+     the TR1 symbol:
+
+         CPPFLAGS = -DTR1
+
+     For some reason, the latter option works best with our linux gcc version
+     4.4.7, and the c++0x option causes problems, so we use -DTR1 on linux
+     even with 4.4.7.
+
+
+     e.  Other Options
+
+     As we have always attempted to make binary versions as ubiquitously
+     useful as possible, our default versions are static compilations.
+     The default Makefile provided does this by using the following option
+     for FFLAGS, CFLAGS, LDFLAGS, and CPPFLAGS: -static.  We also do
+     primarily -O2 optimization, however cdfchi.f requires -O1.  Several
+     makefiles are provided in src which are worked-out examples:
+
+         Makefile.static   a normal static compilation as we use internally
+	 		   which is good for use on machines with different
+			   versions of linux
+
+         Makefile.dynamic  a dynamic compilation when only one type system used
+	 		   	 		   
+         Makefile.64 static compilation with the "64" workaround that
+                           uses shell command "whoami" to get user id
+                           instead of system library getpwuid(
+                           geteuid() ) whose interface is inconsistent
+                           between distribtuions of linux and
+                           especially between 32 and 64 bit linux.*
+                           
+
+	Makefile.d64	   dynamic compilation with the "64" workaround.*
+
+	(*There is nothing automatically "64bit" about the "64" workaround, it
+	just first became necessary when 64 bit linux appeared.  It also
+	appears to be useful between different 64 bit linux too.  But if
+	you are compiling on the system being used, you won't need it.
+	The normal getpwuid method is better for batch and cluster usage.)
+
+     -O3 optimization is not generally recommended by the authors of GCC
+     and was not found to be beneficial.
+
+
+     2.  ibd-src
+
+     A handful of C and Fortran programs in the ibd-src subdirectory
+     are simply compiled with "make."  This 1995 vintage code is so
+     portable it has never needed any changes on any system.
+     
+
+     3.  fastlink-src
+
+     fastlink-src is the particular version of "mlink" used by SOLAR.
+     mlink is freely available online, but only this particular version
+     is recommended and it may have other changes.
+
+     4.  extras
+
+     arrangeps.py and stringplotk are actually text files simply placed
+     in the SOLAR bin directory.
+
+     homo is simply compiled with cc from homo.c.  We have included the
+     original source distribution in subdirectory extras/homo.
+
+     xmgr is an ancient program still found online.  Although superceded by
+     Grace, Grace is not compatible with xmgr and will not work correctly with
+     SOLAR.  xmgr requires a few changes, which we include in subdirectory
+     xmgr_changes.  The configure does not work with modern OS's and the
+     Makefile must simply be edited by hand until it compiles, a rather
+     difficult procedure even for experienced programmers.
+
+     rlwrap performs command line editing in the process which invokes
+     SOLAR.  rlwrap is compiled from rlwrap-0.37.tar.gz which is available
+     online.  Before compiling, replace a few files with our changes in
+     subdirectory rlwrap_changes.

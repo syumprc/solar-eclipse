@@ -1,0 +1,182 @@
+all:	solarmain
+
+# gcc linux and SGI version
+
+FC=gfortran
+CC=gcc
+CXX=g++
+
+FFLAGS = -O1 -fno-second-underscore -fexceptions -m32
+CFLAGS = -O2 -I../lib -DUSE_SAFELIB -fexceptions -m32
+LDFLAGS = -L../lib -L/usr/local/lib -lsafe -ltcl8.4  -lm -lc -lstdc++ -ldl -fexceptions -m32 -lznz -lRicVolumed -lNemaVolumed -lfslio -lniftiio -lnifticdf -lz
+CXXFLAGS = -O2 -std=c++0x -I../lib -I../ -DUSE_SAFELIB -fexceptions -m32 -DNO_RICVOLUMESET
+
+# End of system specific definitions
+
+INCLUDES= \
+solar.h \
+expression.h \
+token.h \
+config.h \
+tablefile.h \
+plotpipe.h \
+mvn.h \
+nrutil.h
+
+OBS= \
+mathmatrix.o \
+voxel.o \
+option.o \
+zscore.o \
+evd.o \
+evdlik.o \
+fdate.o \
+snp.o \
+define.o \
+ipmpar.o \
+spmpar.o \
+cdfnor.o \
+normal.o \
+fit2dp.o \
+dppfa.o \
+scratchfile.o \
+scale.o \
+ccuserid.o \
+alnormc.o \
+eqvar.o \
+ncdf.o \
+npdf.o \
+mehd.o \
+nrutil.o \
+w_mehd.o \
+fun_mehd.o \
+ibs.o \
+drand.o \
+simqtl.o \
+howclose.o \
+fisherpedigree.o \
+covariate.o \
+writestr.o \
+parameter.o \
+dasycov.o \
+phidens.o \
+alnorm.o \
+hessin.o \
+mvncdf.o \
+ddfun.o \
+dfun.o \
+solar.o \
+solarfilecmd.o \
+phenotypes.o \
+solarmain.o \
+mu.o \
+loglike.o \
+model.o \
+omega.o \
+trait.o \
+function.o \
+expression.o \
+field.o \
+marker.o \
+pedigree.o \
+solarfile.o \
+tablefile.o \
+tablefilecmd.o \
+constraint.o \
+tclgr.o \
+plotpipe.o \
+chi.o \
+cdfchi.o \
+key.o \
+freq.o \
+ibd.o \
+mibd.o \
+ibdoption.o \
+map.o \
+maximize.o \
+loadsave.o \
+verbosity.o \
+token.o \
+scan.o \
+help.o \
+ccsearch.o
+
+#
+# Fortran objects needed by fisher
+#
+FOBS= \
+evdout.o \
+symeig.o \
+eigstruc.o \
+ppnd.o \
+dcovar.o \
+dmean.o \
+smpoutput.o \
+inital.o \
+dcopyped.o \
+optima.o \
+astop.o \
+asycov.o \
+beta.o \
+calc.o \
+chisq.o \
+clear.o \
+copyped.o \
+covar.o \
+delta7.o \
+digam.o \
+direct.o \
+edftst.o \
+fdist.o \
+fun.o \
+gamlog.o \
+gaucdf.o \
+hpsort.o \
+kin.o \
+linpack.o \
+logo.o \
+loop.o \
+mblank.o \
+newlik.o \
+output.o \
+pedtst.o \
+pinput.o \
+preopt.o \
+preped.o \
+fortfiles.o \
+qdprog.o \
+random.o \
+resid.o \
+scor.o \
+search.o \
+settab.o \
+sweep.o \
+tdist.o \
+trigam.o \
+upcase.o \
+matrix.o \
+yesno.o
+
+pchis.o:	pchis.f
+	f77 -O1 -c pchis.f
+
+solarmain: $(INCLUDES) $(OBS) $(FOBS)
+	$(CXX) $(CXXFLAGS) -c solar.cc
+	$(CXX) $(CXXFLAGS) -L/usr/local/lib -o solarmain $(OBS) $(FOBS) $(LDFLAGS) -lgfortran
+	cp solarmain ../bin
+install:
+	/usr/sbin/install -f ../bin -o solarmain
+
+
+ecalc:	ecalc.o expression.o token.o scan.o function.o
+	CC -g -o ecalc ecalc.o expression.o token.o scan.o function.o $(LDFLAGS)
+
+clean:	
+	rm -f *.o solarmain
+
+copyobj:
+	cp *.o opt
+	cp solarmain opt
+
+ccclean: 
+	rm $(OBS)

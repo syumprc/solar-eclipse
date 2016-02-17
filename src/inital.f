@@ -1,0 +1,80 @@
+C Modified 1996-1999 by Charles Peterson, SFBR.
+C
+      SUBROUTINE INITAL(CNSTR,CVALUE,PAR,PARMAX,PARMIN,VMEAN,VVAR,PNAME
+     1,NCNSTR,NPAR,NTRAIT,NVAR,UNIT3,VMIN,VMAX,CONOUT,PAREST,IERROR)
+C
+C     IN THIS SUBROUTINE THE USER SHOULD DEFINE THE INITIAL
+C     PARAMETER VALUES, THE PARAMETER BOUNDS, AND THE LINEAR
+C     EQUALITY CONSTRAINTS FOR A LIKELIHOOD SEARCH.  WHEN A
+C     GRID OF LIKELIHOOD VALUES IS DESIRED, THEN ONLY DEFINE 
+C     THE ARRAY GRID.  PARAMETER NAMES CAN BE OPTIONALLY INPUT.
+C
+      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      DOUBLE PRECISION CNSTR(NCNSTR,NPAR),CVALUE(NCNSTR)
+     1,PAR(NPAR),PARMAX(NPAR),PARMIN(NPAR)
+     2,VMEAN(NVAR),VVAR(NVAR),VMIN(NVAR),VMAX(NVAR)
+     3,PAREST(NPAR)
+      INTEGER UNIT3
+      CHARACTER PNAME(NPAR)*(*)
+      LOGICAL VERBOSE, VSAMPLE, VITERATE, SAVEMEANS
+      INTEGER CONOUT,IERROR
+
+ 105  FORMAT (//
+     1'                 Model Parameter Starting Points and Boundaries'
+     1,/)
+
+      IERROR = 0         
+      VSAMPLE = VERBOSE ("SAMPLE")
+      VITERATE = VERBOSE ("ITERATE")
+C
+C Write header
+C
+      WRITE (UNIT3, 105)
+      IF (VSAMPLE) WRITE (CONOUT, 105)
+      CALL FLUSH (UNIT3)
+      CALL FLUSH (CONOUT)
+
+      CALL WRITEPHEAD (UNIT3, 1)
+      IF (VSAMPLE) CALL WRITEPHEAD (CONOUT, 1)
+C
+C Pass means along to covariate module
+C
+      IF (SAVEMEANS (NVAR, VMEAN, VMIN, VMAX, UNIT3)) THEN
+         WRITE (UNIT3, 113)
+         WRITE (CONOUT, 113)
+ 113     FORMAT (' Covariate interactor is not binary')
+         IERROR = 1
+         RETURN
+      END IF
+
+C
+C Set initial values and boundaries where applicable
+C
+      CALL INITPARAM (VMEAN, VVAR, VMIN, VMAX)
+C
+C Pull parameters from parameter module
+C Check and adjust bounds to "satisfy" constraints
+C Print to output file and to terminal if requested
+C
+      DO 1 I=1,NPAR
+         CALL GETPARAM (I,PNAME(I),PAR(I),PARMIN(I),PARMAX(I))
+         CALL CONCHECK (I,PAR(I),PARMIN(I),PARMAX(I))
+         CALL WRITEPARAM (UNIT3,I,PAR(I),PARMIN(I),PARMAX(I))
+         IF (VSAMPLE) THEN
+            CALL WRITEPARAM (CONOUT,I,PAR(I),PARMIN(I),PARMAX(I))
+         ENDIF
+    1 CONTINUE
+
+      WRITE (UNIT3, 104) ' '
+ 104  FORMAT (A)
+
+      DO 275 I = 1, NPAR
+         PAREST(I) = PAR(I)
+ 275  CONTINUE
+
+      CALL GETCONS (CNSTR, CVALUE)
+
+      IF (VITERATE) WRITE (CONOUT, 1001) 
+ 1001 FORMAT (//T28,'Maximizing Loglikelihood...'/)
+
+      END

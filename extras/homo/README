@@ -1,0 +1,442 @@
+README file for program Homo, test version 0.2, 22 October 2002
+
+
+
+
+
+The program and this README file was written by Harald Göring. My current
+email address is hgoring@darwin.sfbr.org.
+
+
+
+
+
+Program Homo performs a test of heterogeneity using an admixture model
+[Smith CAB (1961) Homogeneity test for linkage data. Proc Sec Int Congr
+Hum Genet 1:212-213]. The program tests for linkage assuming homogeneity,
+for heterogeneity given linkage (which makes sense only if linkage
+assuming homogeneity has been demostrated), and of joint linkage and
+heterogeneity. The program takes its input from an input file and writes
+its output to an output file. The file names are fixed.
+
+Overall, the program is quite similar to Jurg Ott's Pascal program HOMOG
+[Ott J (1983) Linkage analysis and family classification under
+heterogeneity. Ann Hum Genet 47:311-320], with differences in input and
+output formats. This program is not intended as a replacement for HOMOG.
+Rather, it was convenient to have my own program, written in ansi-C, with
+different input and output formats.
+
+
+
+
+
+Table of contents:
+ 1.	Program changes
+ 2.	Legal notice
+ 3.	Obtaining the program
+ 4.	Installation
+ 5.	Compilation, including programming constants
+ 6.	Invoking the program
+ 7.	Overview of program
+ 8.	Description of input file
+ 9.	Example input file
+10.	Description of output file
+11.	Example output file
+12.	Correspondence
+13.	References
+
+
+
+
+
+1. Program changes
+
+Changes with version 0.1: 
+
+This is the first test version of the program. There are thus no changes.
+
+
+Changes with version 0.2: 
+
+The program no longer aborts when computing the p-value of a negative
+chi-squared statistic, instead treating the statistic as being equal to 0.
+A negative value of a chi-squared statistic may be obtained due to
+numerical problems (such as "rounding") or due to the existence of
+nuisance parameters (see below).
+
+In addition, miniscule changes to the output format were made, and the
+README file was edited slightly.
+
+
+
+
+
+2. Legal notice
+
+The program is free of charge. 
+
+You may modify the program for use by yourself or in your own lab.
+
+You may distribute the unmodified program. If you do, please include this
+file. However, please do not distribute a modified version of the program
+without my permission. If you do so nonetheless, please include this file
+and in addition a description of your changes.
+
+I do not take any responsibility for the accuracy of the results nor for
+the use to which they are put.
+
+Since this program is rather trivial, there is no need to cite its use. If
+you feel like it nonetheless, simply state the program name, version, my
+name and email address.
+
+
+
+
+
+3. Obtaining the program
+
+Currently, the only way to obtain the program is by contacting me. My
+current email address is hgoring@darwin.sfbr.org. At some point, I might
+distribute this program via the web.
+
+
+
+
+
+4. Installation
+
+Assuming that you obtained file homo.v0.2.tar.gz:
+
+Uncompress file homo.v0.2.tar.gz with the following or equivalent command:
+	gzip -drv homo.v0.2.tar.gz
+This creates file homo.v0.2.tar.
+
+Un-archive file homo.tar with the following or equivalent command:
+	tar -xvf homo.v0.2.tar
+This creates a sub-directory homo/v0.2, which contains the source code,
+a Makefile, a README file (this file) and example input and output files
+shown below.
+
+Initial compilation is necessary and described below.
+
+After compilation, if you want to run the program from directories other
+than where it is installed, you might want to put the executable file in
+your path.
+
+
+
+
+5. Compilation, including programming constants
+
+The program is written in ansi-C. Compilation should therefore be no
+problem. A Makefile is provided for this purpose, such that the command
+"make" should do the trick and produce the executable file "homo". It may
+be necessary, however, to modify the Makefile according to your situation.
+
+
+There are a number of constants, which may be changed if necessary, which
+I assume will rarely, if ever, be required. These constants are contained
+in the header file "homo.h". The constants of interest are:
+
+#define MAXCHLINE      2000     /*max. + 1 no. of characters in a line*/
+#define MAXCHWORD       100     /*max. + 1 no. of characters in a word*/
+#define ALPHAINCREMENT    0.001 /*stepsize in homogeneity parameter ...*/
+
+MAXCHLINE needs to be increased if any line in the comma-delimited input
+file contains more than MAXCHLINE characters. This does not matter if the
+input file is space-delimited (the program supports both options; see
+below).
+
+MAXCHWORD needs to be increased if the identifier of any pedigree contains
+more than MAXCHWORD characters.
+
+ALPHAINCREMENT needs to be decreased if you want to evaluate the
+likelihood for a finer grid of values for the homogeneity parameter. This
+value must be greater than 0.
+
+
+
+
+
+6. Invoking the program
+
+If the program is in your path, invoke it with the following
+commands:
+	
+	homo
+	homo -c
+
+The first command assumes a space-delimited input file, while the second
+command assumes a comma-delimited input file (see below).
+
+
+
+
+
+7. General program description:
+
+Program homo performs a heterogeneity test using an admixture model [Smith
+CAB (1961) Homogeneity test for linkage data. Proc Sec Int Congr Hum Genet
+1:212-213].
+
+The program performs tests of linkage assuming homogeneity, of
+heterogeneity given linkage, and of joint linkage and heterogeneity. The
+test statistic of linkage under homogeneity, -2 ln [L(no linkage) /
+L(linkage, homogeneity)], which is equal to 2 ln(10)-times the "standard"
+lod score of linkage), is assumed to be asymptotically distributed as 0.5
+(0) + 0.5 chi(1). The test statistic of heterogeneity given linkage, -2 ln
+[L(linkage, homogeneity) / L(linkage, heterogeneity)], is assumed to be
+asymptotically distributed as 0.5 (0) + 0.5 chi(1). The joint test
+statistic of linkage and heterogeneity, -2 ln [L(no linkage) / L(linkage,
+heterogeneity)], is tentatively assumed to be asymptotically distributed
+as 0.25 (0) + 0.5 chi(1) + 0.25 chi(2). This may not be correct, because
+only a single parameter (the linkage parameter or the homogeneity
+parameter) exists under the null hypothesis of no linkage, but not both
+parameters. See below for additional reasons why this may not hold.
+
+Note that the test of heterogeneity given linkage only makes sense if
+linkage (under homogeneite) has been demonstrated, i.e. when the test of
+linkage under homogeneity is significant. Similarly, the probabilities
+that a given pedigree is of the linked type only make sense if both
+linkage and heterogeneity have been demonstrated.
+
+Note that the test of heterogeneity given linkage is not subject to
+multiple testing, at least when this test is used at a single position
+after linkage has been demonstrated, e.g. at the position of a
+statistically significant lod score peak. Standard levels of significance
+such as 0.05 may thus be appropriate, in contrast to the test of linkage
+under homogeneity and the joint test of linkage and heterogeneity.
+
+The program takes its input from an input file (file "homo.in", which is
+either space- or comma-delimted) and writes its output to an output file
+(file "homo.out"). If the output file already exists, it will be
+overwritten without warning.
+
+
+
+
+
+8. Description of input file:
+
+The input file is named homo.in and is assumed to be error-free. If there
+are errors, the program may crash or give incorrect results. The file
+contains (multiple) space-delimited or (single) comma-delimited data. The
+file format is as follows:
+
+Each line contains the data for a single pedigree. No empty lines are
+allowed anywhere in the file, including at the end (because the number of 
+lines in the file is used to determine the number of pedigrees).
+
+The 1st column contains the pedigree identifier (treated as a character
+array).
+
+The 2nd column contains the ln likelihood in the absence of linkage or a
+locus effect. (In most forms of linkage analysis, this model is simply
+termed the null model of absence of linkage. In variance-components-based
+linkage analysis, such as in the computer package SOLAR [Almasy L,
+Blangero B (2000) Multipoint quantitative-trait linkage analysis in
+general pedigrees. Am J Hum Genet 62:1198-1211], this is sometimes termed
+the polygenic model.)
+
+The remaining columns contain the ln likelihood in the presence of linkage
+or a locus effect for different considered values of the linkage parameter
+of interest, such as the recombination fraction (e.g. in single marker
+analysis under a penetrance model), map position (e.g. in multiple marker
+analysis under a penetrance model or in various "model-free" methods such
+as affected sib pair analysis) or locus effect (such as the additive
+heritability attributable to a quantitative trait locus in variance
+components-based linkage analysis). The actual values which were
+considered are of no concern to the program, except for output purposes.
+The 3rd column is unusual in that it contains the ln likelihood for the
+value of the parameter of interest equal to that under the null
+hypothesis. Generally, the ln likelihoods in the 2nd and 3rd column should
+be the same. However, if there are additional parameters such as nuisance
+parameters over which the likelihood is maximized independently under the
+null and alternative hypothesis, then this may not be the case. The reason
+is that the estimates for these additional nuisance parameters must be
+constrained to be equal for all considered values of the parameter of
+interest under the alternative hypothesis. If this is not the case, then
+the distribution of the test statistic can be anti-conservative (as there
+are additional degrees of freedom). If this is the case, the theoretical
+distribution still does not hold, but at least the test statistic is
+distributed conservatively, with the degree of conservativeness depending
+on the situation. This complication only comes into play when using a
+program such as this or Jurg Ott's HOMOG on the computed ln likelihoods
+under homogeneity, which is clearly inferior to joint maximization of the
+likelihoods over all parameters including the homogeneity parameter.
+However, to enable such stand-alone heterogeneity analysis on data
+containing nuisance parameters at all, this program requires both columns
+2 and 3.
+
+The first line is a header line containing the column descriptions. The
+descriptions of the first 2 columns are not read by the program. The
+descriptions of the remaining columns are real-valued numbers
+corresponding to the considered values of the parameter of interest under
+the alternative hypothesis. The actual values are not of interest to the
+program except for output purposes (but the value in column 3 should be
+the value corresponding to the null hypothesis).
+
+
+
+
+
+9. Example input file:
+
+Here is an example input file (file "homo.in.example"):
+
+================================= top of file=================================
+pedigree H0(0.0)    0.0        0.25       0.5        0.547824
+1	 -14.571021 -14.571021 -13.976540 -13.947142 -14.000704
+2        -36.053713 -36.053713 -33.507101 -32.278364 -32.089103
+3        -42.543684 -42.543684 -42.524543 -42.949210 -43.048406
+4        -22.371781 -22.371781 -23.711081 -25.843235 -26.382603
+5        -14.784605 -14.784605 -14.243736 -15.026048 -15.301794
+6        -16.589288 -16.589288 -15.366200 -14.552932 -14.425285
+7        -17.053364 -17.053364 -16.106695 -15.716775 -15.708037
+8        -12.334806 -12.334806 -12.652468 -14.017889 -14.410777
+9         -4.040945  -4.040945  -4.334180  -5.033988  -5.216918
+10       -17.274505 -17.274505 -17.686661 -18.658107 -18.923429
+ped11    -20.655283 -20.655283 -18.970379 -18.255366 -18.165237
+ped12     -6.396721  -6.396721  -5.641636  -5.516511  -5.547768
+ped13    -14.046281 -14.046281 -14.955922 -16.200899 -16.502320
+ped14    -31.876677 -31.876677 -34.292162 -37.092688 -37.706655
+ped15    -21.004423 -21.004423 -20.779725 -20.600293 -20.575726
+ped16    -11.438942 -11.438942 -10.596445  -9.926502  -9.820651
+ped17    -16.119489 -16.119489 -15.816796 -15.763794 -15.770420
+ped18     -8.545013  -8.545013  -8.201118  -8.266424  -8.315961
+ped19    -15.906046 -15.906046 -16.058611 -16.553366 -16.701089
+ped20    -16.704263 -16.704263 -15.889676 -15.244580 -15.113708
+================================ bottom of file===============================
+
+In a real analysis, it would be preferred to have the ln likelihoods for
+many more values of the linkage parameter of interest.
+
+
+
+
+
+10. Description of output file:
+
+The program writes its output to file homo.out. If this file already
+exists, its contents will be overwritten without warning. The output
+should be self-explanatory.
+
+
+
+
+
+11. Example output file:
+
+Here is an example output file (file "homo.out.example"):
+
+================================= top of file=================================
+================================================================================
+program homo, test version 0.2, 22 October 2002
+by Harald Göring
+See README file for documentation.
+For bug reports, comments or questions, send email to hgoring@darwin.sfbr.org.
+================================================================================
+Tue Oct 22 16:49:43 2002
+
+
+description of hypotheses:
+
+abbr.        description
+----- -------------------------
+  H0  no linkage
+  H1     linkage, homogeneity
+  H2     linkage, heterogeneity
+
+
+description of tests:
+
+  abbr.           description            lod score     chi^2 statistic   theoretical asymptotic distribution
+--------- --------------------------- --------------- ----------------- ------------------------------------
+H0 vs. H1   linkage under homogeneity lg[L(H1)/L(H0)] -2ln[L(H0)/L(H1)]  .5 (0) + .5 chi^2(1)
+H1 vs. H2 heterogeneity given linkage lg[L(H2)/L(H1)] -2ln[L(H1)/L(H2)]  .5 (0) + .5 chi^2(1)
+H0 vs. H2   linkage and heterogeneity lg[L(H2)/L(H0)] -2ln[L(H0)/L(H2)] .25 (0) + .5 chi^2(1) + .25 chi^2(2) (?)
+
+
+test results:
+
+   test   lod score chi^2 statistic    p-value
+--------- --------- --------------- ------------
+H0 vs. H1  2.171114        9.998350     0.000787
+H1 vs. H2  0.844853        3.890692     0.024285 (TEST MAKES NO SENSE AS H0 VS. H1 IS NOT SIGNIFICANT!)
+H0 vs. H2  3.015967       13.889042     0.000339
+
+
+maximum likelihoods and maximum likelihood estimates of parameters:
+
+hypothesis ln likelihood linkage par.  homog. par.
+---------- ------------- ------------ ------------
+    H0       -360.310850   (0.000000)  (undefined)
+    H1       -355.311675    0.250000   (1.000000)
+    H2       -353.366329    0.547824    0.502000
+
+
+pedigree-specific results:
+
+                      ln likelihood                       lod score           prob. that
+         -------------------------------------- -----------------------------   pedigree
+pedigree      H0           H1           H2      H0 vs. H1 H1 vs. H2 H0 vs. H2  is linked
+-------- ------------ ------------ ------------ --------- --------- --------- ----------
+       1   -14.571021   -13.976540   -14.244634  0.258180 -0.116432  0.141748    0.641
+       2   -36.053713   -33.507101   -32.759609  1.105980  0.324632  1.430611    0.982
+       3   -42.543684   -42.524543   -42.765523  0.008313 -0.104656 -0.096344    0.378
+       4   -22.371781   -23.711081   -23.050837 -0.581651  0.286740 -0.294910    0.018
+       5   -14.784605   -14.243736   -15.011143  0.234896 -0.333280 -0.098384    0.375
+       6   -16.589288   -15.366200   -15.006529  0.531180  0.156203  0.687384    0.898
+       7   -17.053364   -16.106695   -16.167368  0.411133 -0.026350  0.384783    0.795
+       8   -12.334806   -12.652468   -12.912897 -0.137959 -0.113103 -0.251062    0.112
+       9    -4.040945    -4.334180    -4.467313 -0.127350 -0.057819 -0.185169    0.237
+      10   -17.274505   -17.686661   -17.794518 -0.178997 -0.046842 -0.225839    0.162
+   ped11   -20.655283   -18.970379   -18.775354  0.731745  0.084698  0.816443    0.924
+   ped12    -6.396721    -5.641636    -5.883135  0.327929 -0.104882  0.223048    0.702
+   ped13   -14.046281   -14.955922   -14.660509 -0.395052  0.128296 -0.266756    0.080
+   ped14   -31.876677   -34.292162   -32.570875 -1.049032  0.747546 -0.301486    0.003
+   ped15   -21.004423   -20.779725   -20.766432  0.097585  0.005773  0.103358    0.607
+   ped16   -11.438942   -10.596445   -10.330274  0.365892  0.115597  0.481488    0.836
+   ped17   -16.119489   -15.816796   -15.929109  0.131458 -0.048777  0.082681    0.588
+   ped18    -8.545013    -8.201118    -8.423487  0.149352 -0.096574  0.052778    0.559
+   ped19   -15.906046   -16.058611   -16.228066 -0.066258 -0.073593 -0.139851    0.313
+   ped20   -16.704263   -15.889676   -15.618720  0.353771  0.117675  0.471446    0.832
+   total  -360.310850  -355.311675  -353.366329  2.171114  0.844853  3.015967
+================================ bottom of file===============================
+
+Note that is in this case the test of heterogeneity given linkage does not
+make sense, because the test of linkage under homogeneity is not
+significant. The program flags this complication by stating this. The
+program nonetheless gives the probabilities that any pedigree is of the
+linked type without any warning, even though these probabilities also do
+not make sense here.
+
+
+
+
+
+12. Correspondence
+
+If you detect a bug in the program please send me e-mail at 
+
+	hgoring@darwin.sfbr.org
+
+I would also appreciate suggestions for or criticism of the program. 
+
+
+
+
+
+13. References
+
+Here are a few references for the admixture test of linkage heterogeneity:
+
+Smith CAB (1961) Homogeneity test for linkage data. Proc Sec Int Congr Hum
+Genet 1:212-213]
+
+Ott J (1983) Linkage analysis and family classification under
+heterogeneity. Ann Hum Genet 47:311-320
+
+Ott J (1985) Analysis of human genetic linkage. The Johns Hopkins
+University Press (which is the reference for the various HOMOG programs by
+J Ott)

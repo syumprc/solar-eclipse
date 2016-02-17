@@ -1,0 +1,1176 @@
+#!/usr/bin/env wish
+
+# ****************************************************************************
+#                             miniplot main script
+# ****************************************************************************
+
+# Process command line arguments
+
+set usage "USAGE: stringplotk -mibddir mibddir -in inputfile -o outputfile"
+set DEBUG 0
+if {"" == $argv} {
+    puts $usage
+    exit 1
+}	
+
+# error "args are $argv"
+
+set dash ""
+set font ""
+set fontarg ""
+set titlefont ""
+set titlefontarg ""
+set inputfile "multipoint1.out"
+set outputfile "str.pass1.ps"
+set mibd_dir ""
+set title "String Plot"
+set lodscale -100
+set user_map ""
+set nomark 0
+set lodmark 0
+set user_chromosomes 0
+set colorspec {}
+set linewidth 2
+set no_conv_err 0
+set datestamp 0
+set old_only 0
+set show_c_data 0
+set show_c 0
+
+set outlayername ""
+set legend ""
+set layers {}
+set replay_layers {}
+
+set junk [read_arglist $argv \
+    -in inputfile \
+    -o outputfile \
+    -mibddir mibd_dir \
+    -title title \
+    -lod lodscale \
+    -mapfile user_map \
+    -layername outlayername \
+    -legend legend \
+    -layers layers \
+    -layer layers \
+    -replay replay_layers \
+    -nomark {set nomark 1} \
+    -lodmark {set lodmark 1} \
+    -chromosomes user_chromosomes \
+    -color colorspec \
+    -layercolor colorspec \
+    -linewidth linewidth \
+    -dash dash \
+    -linestyle dash \
+    -noconv {set no_conv_err 1} \
+    -font font \
+    -titlefont titlefont \
+    -date {set datestamp 1} \
+    -show_c_data {set show_c_data 1} \
+    -show_c {set show_c} \
+    -debug {set DEBUG 1}]
+
+if {"" != $replay_layers} {
+    set old_only 1
+    set outlayername ""  ;# this option is not applicable to replays
+    set layers $replay_layers
+}
+
+if {"" != $font} {
+    set fontarg "-font $font"
+    set titlefontarg "-font $font"
+}
+
+if {"" != $dash} {
+    if {0 == [string compare / [string index $dash 0]]} {
+	set dash [string range $dash 1 end]
+    }
+    set dash [split $dash /]
+    set first [lindex $dash 0]
+    if {$first == "_" || $first == "-" || $first == "." || $first == ","} {
+	while {-1 != [set fs [string first " " $dash]]} {
+	    set dash "[string range $dash 0 [expr $fs-1]][string range $dash [expr $fs+1] end]"
+	}
+    }
+    set dash "-dash {$dash}"
+}
+
+if {"" != $titlefont} {
+    set titlefontarg "-font $titlefont"
+}
+
+if {"" != $junk} {
+	error "Invalid arguments: $junk"
+}
+
+if {"" == $mibd_dir} {
+	error "-mibddir argument required\n$usage"
+}
+
+if {![file exists $inputfile]} {
+    error "stringplotk input file $inputfile not found"
+}
+
+# Read multipoint1.out and layer files, putting data into lists:
+#   Chromosome, High_Loc, and High_LOD
+
+set Chromosome {}	
+set Chromosome_Number {}
+set Chromosome_Layer {}
+set Layer_Color {}
+
+set default_colors \
+  {blue red green grey cyan orange purple brown violet magenta yellow}
+
+# Also create set for chromosome information in all layers
+# chromosomes is number of unique chromosomes
+
+set Chromosome_Set {}
+set chromosomes 0
+set High_Loc {}
+set High_LOD {}
+
+set Nan_Chromosomes {}
+set nan_count 0
+
+# Implementation of layers (overlays):
+#
+# Layers need not have the same number of chromosomes, nor need chromosomes
+#   have the same number of loci, etc.  Geometry is determined by the entire
+#   "set" of chromosomes, sorted in order, and the highest locus or marker
+#   in each.
+#
+# "Chromosome" list includes the LOD data for all layers, 
+#   in sequence of chromosomes as found, from bottom to top.
+#
+#  Chromosome_Number is matching list with actual chromosome number, and
+#   Chromosome_Layer determines the Layer.
+#
+# "Top" layer is current layer (from multipoint file).  This may be deselected
+#   with -replay option.
+#
+# Chromosome_Set is the set of chromsomes found in all layers, identified
+#   by number, and keyed to High_Loc and High_LOD.
+#
+
+# Start output layer file if applicable
+# Add in relevant layer options here before header
+
+if {"" != $outlayername} {
+    set layerfile [open plot.string.$outlayername.info w]
+    if {{} != $colorspec} {
+	puts $layerfile "\# -layercolor $colorspec"
+    }
+    puts $layerfile "chrom,loc,lod"
+}
+
+# Temporary variables during reading
+
+set current_data {}
+set last_chrom -10
+set high_loc 0
+set high_lod 0
+
+# Create Layers, ordered from bottom to top (current)
+# Set up inital Layer_Color, which may be overridden later
+
+set Layers {}
+set Layer_Color {}
+
+# Set up "top" layer if applicable
+
+if {!$old_only} {
+    set Layers "@"    ;# This indicates top layer
+    if {{} != $colorspec} {
+	set Layer_Color $colorspec
+    } elseif {0 == [llength $layers]} {
+	set Layer_Color black
+    } else {
+	set Layer_Color "{}"
+    }
+}
+
+# Final color defaults are filled in after examining layer files
+
+set startlayer [expr [llength $layers] - 1]
+foreach thislayer $layers {
+    set Layers "{$thislayer} $Layers"
+    set color {}
+    set colorflag [lsearch $thislayer -color]
+    if {$colorflag >= 0} {
+	set color [lindex $thislayer [expr 1 + $colorflag]]
+    }
+    if {{} != $color} {
+	set Layer_Color "$color $Layer_Color"
+    } else {
+	set Layer_Color "{} $Layer_Color"
+    }
+}
+
+#puts "Layer Colors are $Layer_Color"
+#puts "Layers are $Layers"
+#puts "there are [llength $Layer_Color] layer colors now"
+
+# Read in Layers and Current Data
+
+set current_layer -1
+foreach layer $Layers {
+    incr current_layer
+#
+# Open relevant file and skip to data
+#
+# Top (current) layer
+#
+    if {"@" == $layer} {
+	set mfile [open $inputfile r]
+	gets $mfile
+	gets $mfile
+	if {-1 == [gets $mfile line]} {
+	    close $mfile
+	    error "Empty multipoint file $mfile"
+	}
+#
+# Lower layers: Read data from layer file
+#   Multi-word names are allowed up to first option
+#
+    } else {
+	set lname ""
+	foreach lword $layer {
+	    if {![string compare - [string index $lword 0]]} {
+		break
+	    }
+	    if {"" == $lname} {
+		set lname $lword
+	    } else {
+		set lname "$lname $lword"
+	    }
+	}
+	set fullname plot.string.$lname.info
+	set mfile [open $fullname r]
+	set seenheader 0
+	while {1} {
+	    if {-1 == [gets $mfile line]} {
+		close $mfile
+		error "Empty layer file $lname"
+	    }
+	    if {![string compare \# [string index $line 0]]} {
+#
+# Lines starting with # are option lines
+#
+		set optionline [string range $line 1 end]
+		set layercolor [lsearch $optionline "-layercolor"]
+		if {$layercolor > -1} {
+		    set original_color [lindex $optionline \
+					    [expr 1 + $layercolor]]
+		    if {{} != $original_color} {
+#
+# Assign this as the color for this layer, if not already assigned
+#
+			set currentcolor [lindex $Layer_Color $current_layer]
+			if {{} == $currentcolor} {
+			    set prei [expr $current_layer - 1]
+			    set posti [expr $current_layer + 1]
+			    set Layer_Color \
+				"[lrange $Layer_Color 0 $prei] $original_color [lrange $Layer_Color $posti end]"
+			}
+		    }
+		}
+#
+# The first line NOT starting with # is the header.  We skip that here.
+#
+	    } else {
+		if {$seenheader} {break}
+		set seenheader 1
+	    }
+	}
+    }
+#
+# Now, read data for all chromosomes in this layer
+#
+#   error "line is $line"
+
+    set file_ended 0
+    while {1} {
+#
+# Scan line for chrom loc olod
+#
+	if {!$file_ended} {
+	if {"@" == $layer} {
+	    if {5 != [scan $line "%s %s %s %d %s" cid chrom lid locnum olod]} {
+		close $mfile
+		error "Invalid line in multipoint1.out: \n$line"
+	    }
+	    if {[string compare $cid "chrom"] || \
+		    [string compare $lid "loc"]} {
+		close $mfile
+		error "Invalid line in multipoint1.out: \n$line"
+	    }
+	    if {"" != $outlayername} {
+		puts $layerfile $chrom,$locnum,$olod
+	    }
+	} else {
+	    if {![string compare \# [string index $line 0]]} {
+		break
+	    }
+	    set linelist [split $line ,]
+	    if {2 > [llength $linelist]} {
+		close $mfile
+		error "Invalid line $line in layer file $lname"
+	    }
+	    set chrom [lindex $linelist 0]
+	    set locnum [lindex $linelist 1]
+	    set olod [lindex $linelist 2]
+	    if {![is_integer $locnum] || \
+		    !([is_float $olod] || [is_nan $olod])} {
+		close $mfile
+		error "Invalid line $line in layer file $lname"
+	    }
+	}
+
+# Remove leading zero now used by multipoint1.out
+
+	if {![string compare "0" [string index $chrom 0]]} {
+	    set chrom [string range $chrom 1 end]
+	}
+        }
+
+# If this is a new chromosome, or if file has ended
+# add last chromosome (if any) to lists
+
+	if {($file_ended || ($chrom != $last_chrom)) && \
+		{} != $current_data} {
+	    if {$show_c_data} {puts "current_data is $current_data"}
+	    lappend Chromosome $current_data
+	    lappend Chromosome_Number $last_chrom
+	    lappend Chromosome_Layer $current_layer
+
+# Now add to Chromosome_Set and related lists
+
+
+
+	    if {-1 == [lsearch -exact $Chromosome_Set $last_chrom]} {
+#		puts "Inserting chromosome $last_chrom"
+		incr chromosomes
+		lappend Chromosome_Set $last_chrom
+		lappend High_Loc $high_loc
+		lappend High_LOD $high_lod
+
+#
+#   This old code was intended to put Chromosome into order.
+#   However it has been decided simply to use order of discovery
+#		incr chromosomes
+#		set inserted 0
+#		for {set i 0} {$i < [llength $Chromosome_Set]} {incr i} {
+#		    set ci [lindex $Chromosome_Set $i]
+#		    if {$ci > $last_chrom} {
+#			set b [expr $i - 1]
+#			set Chromosome_Set \
+# "[lrange $Chromosome_Set 0 $b] $last_chrom [lrange $Chromosome_Set $i end]"
+#                        set High_Loc \
+# "[lrange $High_Loc 0 $b] $high_loc [lrange $High_Loc $i end]"
+#                        set High_LOD \
+# "[lrange $High_LOD 0 $b] $high_lod [lrange $High_LOD $i end]"
+#                        set inserted 1
+#                        break
+#                   }         
+#               }
+#               if {!$inserted} {
+#		   lappend Chromosome_Set $last_chrom
+#		   lappend High_Loc $high_loc
+#		   lappend High_LOD $high_lod
+#	       }
+
+# This chromosome is already in set, but check if high loc or LOD increases
+
+            } else {
+		set ci [lsearch -exact $Chromosome_Set $last_chrom]
+		if {$high_loc > [lindex $High_Loc $ci]} {
+		    set High_Loc \
+"[lrange $High_Loc 0 [expr $ci-1]] $high_loc [lrange $High_Loc [expr $ci+1] end]"
+                }
+                if {$high_lod > [lindex $High_LOD $ci]} {
+		    set High_LOD \
+"[lrange $High_LOD 0 [expr $ci-1]] $high_lod [lrange $High_LOD [expr $ci+1] end]"
+                }
+            }
+
+# Now clear out data vectors for new chromsome
+
+            set current_data {}
+	    set high_loc 0
+	    set high_lod 0
+        }
+
+# Add new data to vector
+
+        lappend current_data [list $locnum $olod]
+	set high_loc $locnum
+	if {$olod > $high_lod} {
+	    set high_lod $olod
+	}
+        set last_chrom $chrom
+
+# Break if file ended last time, otherwise read next record
+
+        if {$file_ended} {
+	    set current_data {}
+	    break
+	}
+	if {-1 == [gets $mfile line]} {
+	    set file_ended 1
+	}
+
+    } ;# end while processing all chromosomes in this layer
+
+    close $mfile
+
+} ;# End processing this layer
+
+
+if {"" != $outlayername} {
+    close $layerfile
+}
+
+if {$chromosomes == 0} {
+    error "No data found in multipoint1.out file"
+}
+
+if {$user_chromosomes != 0} {
+    set chromosomes $user_chromosomes
+}
+
+#   Fill in colors that were not already filled in
+#   use black if anything else can't be found
+
+set new_layer_color {}
+foreach lc $Layer_Color {
+    if {{} != $lc} {
+	set new_layer_color "$new_layer_color $lc"
+    } else {
+	set dfound 0
+	foreach dc $default_colors {
+	    set bigtarget [string tolower \
+			       [concat $Layer_Color $new_layer_color]]
+	    if {-1 == [lsearch $bigtarget $dc]} {
+		set new_layer_color "$new_layer_color $dc"
+		set dfound 1
+		break
+	    }
+	}
+	if {!$dfound} {
+	    set new_layer_color "$new_layer_color $black"
+	}
+    }
+}
+
+set Layer_Color $new_layer_color
+#puts "Layer_Color is $Layer_Color"
+
+if {$show_c} {
+puts "***********************************************************************"
+puts "Chromosome Data: $Chromosome"
+puts "***********************************************************************"
+}
+
+# Read marker data for each set chromosome into Marker_Tics
+# Indexed as Chromosome_Set
+
+set Marker_Tics {}
+set High_Mark_Loc {}
+foreach chromlabel $Chromosome_Set {
+    set marker_tics {}
+    set highest_mrk_location 0
+    while {!$nomark} {
+	set map_name $user_map
+	if {"" == $user_map} {
+	    set map_name1 $mibd_dir/mibdchr$chromlabel.loc
+	    set map_name2 $mibd_dir/mibdchr0$chromlabel.loc
+	    set exists1 [file exists $map_name1]
+	    set exists2 [file exists $map_name2]
+	    if {$exists1 && $exists2} {
+		puts \
+                  "For chromosome $chromlabel found both $exists1 and $exists2"
+		break
+	    }
+	    if {!$exists1 && !$exists2} {
+		break
+	    }
+	    if {$exists1} {
+		set map_name $map_name1
+	    } else {
+		set map_name $map_name2
+	    }
+
+# Read map file for this chromosome
+
+	    set sort_markers 0
+	    set last_location -100.0
+	    if {![catch {set mapfile [open  $map_name r]}]}  {
+		set instring [gets $mapfile]
+		set word [string tolower [lindex $instring 0]]
+		if {$word == "nloci"} {
+		    gets $mapfile
+		}
+
+# Regardless of format (2 or 3 columns) marker name is first column, location
+#   is last column.  Assume at least one space between columns.
+
+		while {-1 != [gets $mapfile mapline]} {
+		    set mrkname [lindex $mapline 0]
+		    set mrk_location [lindex $mapline [expr [llength $mapline] -1]]
+		    if {![is_float $mrk_location]} {
+			break
+		    }
+
+# Round marker location to nearest 0.000000001 cM
+# (Actually, it is probably in 1/10 anyway, but we must be certain of
+#  level of precision in order for marker moving algorithm to work)
+
+		    set mrk_location [format "%.9f" $mrk_location]
+		    if {$mrk_location < $last_location} {set sort_markers 1}
+		    set last_location $mrk_location
+		    lappend marker_tics $mrk_location
+		    if {$mrk_location > $highest_mrk_location} {
+			set highest_mrk_location $mrk_location
+		    }
+		}
+		close $mapfile
+	    }
+	}
+	break   ;# this was a phony loop to allow breaks on error
+    }
+    lappend Marker_Tics $marker_tics
+    lappend High_Mark_Loc $highest_mrk_location
+}
+	    
+
+# Set graphing constants
+
+set xstart  4                  ;# canvas x coordinate of first chromosome
+set ystart  2.5               ;# canvas y coordinate of first chromosome
+set ygap    3.3                ;# gap between rows
+set xmin    1.1                  ;# minimum gap between columns
+set xend    2.4                  ;# minimum gap after last column
+set yend    1.9                ;# gap after last row
+set yupnum  0.3                ;# elevate chrom number
+set yupcm   0.48               ;# elevate cM label
+set xruler  2.5                ;# x offset of ruler
+set xtick   0.5                ;# width of ruler tick
+set xlabel  0.2                ;# x offset of ruler label from tick
+set horscoff 0.7               ;# offset to moveable horizontal scale
+set horstick  0.35             ;# length of ticks for horizontal scale
+set horsmtick 0.185             ;# length of minor ticks
+set hortxto 0.125              ;# offset to horizontal scale numbers
+set horlaby 0.9                ;# y offset of label from horiz scale
+set max_xfactor 0.5              ;# maximum allowed xfactor
+set height_per_row 9
+set old_width_per_column 2.2
+set width_per_column 1.73
+set martickw 0.3               ;# width of marker tics
+set marticklw 0.15               ;# width of marker tics (on left)
+set reserve_height 0.5         ;# extra height at bottom for error message
+
+# Determine number of rows and columns
+
+set rows 1
+set columns $chromosomes
+if {$chromosomes > 10} {
+    set rows 2
+    set columns [expr round (ceil ($chromosomes / 2.0))]
+}
+if {$DEBUG} {puts "Rows: $rows  Columns: $columns"}
+
+# Determine height and width
+
+set width [expr ($columns+3) * $width_per_column]
+
+set height [expr $rows * $height_per_row]
+if {$DEBUG} {puts "Height: $height   Width: $width"}
+
+# Open canvas
+
+set c c                       ;# "c" is for centimeters
+canvas .c -width $width$c -height [expr $reserve_height+$height]$c -bg white
+wm title . $title
+pack .c
+
+# Add title within graph
+
+eval .c create text [expr $width/2.0]$c 0.5$c -text \"$title\" -anchor n $titlefontarg
+
+if {$datestamp} {
+    set datestring [exec date +%e-%b-%Y]
+    eval .c create text [expr $width - 0.3]$c 0.5$c -text \"$datestring\" -anchor e $fontarg
+}
+
+# Adjust graphing variables for current data
+
+# Determine xfactor (multiplier for LOD values).  xfactor for entire 
+#   window is minimum of xfactor1 and xfactor2 (for each row).
+# The width equation is:
+#   width = xstart + xend + sigma(xfactor*maxlod) + (chroms-1) * xmin
+# So, xfactor is determined by:
+#   xfactor = (width - (xstart + xend + (chroms-1) * xmin)) / sigma(maxlod)
+
+for {set row 1} {$row <= $rows} {incr row} {
+# First, get sigma(maxlod) for this row
+
+    if {$row == 1} {
+	set first_chrom 1
+	set last_chrom $columns
+    } else {
+	set first_chrom [expr round($last_chrom + 1)]
+	set last_chrom $chromosomes
+    }
+    set sigma_maxlod 0
+    set chroms [expr 1 + $last_chrom - $first_chrom]
+    for {set chrom $first_chrom} {$chrom <= $last_chrom} {incr chrom} {
+#	puts "chrom is $chrom"
+#	puts "High_LOD is $High_LOD"
+	set sigma_maxlod [expr $sigma_maxlod + [lindex $High_LOD \
+		[expr round($chrom - 1)]]]
+    }
+
+# Then, calculate xfactor (to be applied to high_lod for each chrom)
+
+    if {$sigma_maxlod > 0} {
+	set xfactor [expr ($width - ($xstart + $xend + ($chroms - 1)*$xmin))/ \
+		$sigma_maxlod]
+    } else {
+	set xfactor $max_xfactor
+    }
+
+# Set xfactor$row and sigma_maxlod$row
+
+    set xfactor$row $xfactor
+    set sigma_maxlod$row $sigma_maxlod
+    if {$DEBUG} {puts "xfactor$row:       $xfactor"}
+    if {$DEBUG} {puts "sigma_maxlod$row:  $sigma_maxlod"}
+}
+
+# Set final xfactor to lowest required for all rows
+
+set xfactor $xfactor1
+if {$rows > 1 && $xfactor1 > $xfactor2} {
+    set xfactor $xfactor2
+}
+if {$xfactor > $max_xfactor} {
+    set xfactor $max_xfactor
+}
+
+if {$DEBUG} {puts "xfactor: $xfactor"}
+
+# Now, determine xmin1 and xmin2 (min spacing between graphs) for each row:
+#   xmin = (width - xstart - xend - sigma_maxlod*xfactor) / columns_in_row-1
+
+set xmin1 1
+if {$columns > 1} {
+    set xmin1 [expr ($width - $xstart - $xend - $sigma_maxlod1*$xfactor) / \
+	    ($columns - 1)]
+}
+set xmin2 1
+if {$DEBUG} {puts "xmin1:  $xmin1"}
+if {$rows > 1 && $chromosomes-$columns > 1} {
+    set xmin2 [expr ($width - $xstart - $xend - $sigma_maxlod2*$xfactor) / \
+	    (($chromosomes - $columns) - 1)]
+if {$DEBUG && $rows==2} {puts "xmin2:  $xmin2"}
+}
+
+# Determine which chromosome has highest LOD
+set highest_chromosome 0
+set highest_lod_score 0
+for {set i 0} {$i < $chromosomes} {incr i} {
+    if {$highest_lod_score < [lindex $High_LOD $i]} {
+	set highest_chromosome [expr $i + 1]
+	set highest_lod_score [lindex $High_LOD $i]
+    }
+}
+if {$DEBUG} {
+    puts "Highest LOD $highest_lod_score at chromosome $highest_chromosome"
+}
+
+# Determine yfactor, yrow1, and yrow2
+
+# yrowN = yfactor * maxlocN
+# height = ystart + yend + ygap + yfactor * (maxloc1 + maxloc2)
+#   yfactor = (height - (ystart + yend + ygap)) / (maxloc1 + maxloc2)
+
+# Find highest location for (each) row: maxlocN
+
+set maxloc1 0
+set maxloc2 0
+set row_high_loc 0
+set i 0
+for {set i 0} {$i < $columns} {incr i} {
+    set high_loc [lindex $High_Loc $i]
+    set high_m [lindex $High_Mark_Loc $i]
+    if {$high_loc < $high_m} {
+	set high_loc $high_m
+    }
+    if {$high_loc > $maxloc1} {
+	set maxloc1 $high_loc
+    }
+}
+if {$DEBUG} {puts "columns is $columns"}
+if {$rows>1} {
+    for {set i $columns} {$i < $chromosomes} {incr i} {
+	set high_loc [lindex $High_Loc $i]
+	if {$high_loc > $maxloc2} {
+	    set maxloc2 $high_loc
+	}
+    }
+}
+if {$DEBUG} {puts "Row 1 high loc: $maxloc1"}
+if {$DEBUG} {puts "Row 2 high loc: $maxloc2"}
+
+# Round up maxloc to next 25
+
+proc snapup {number interval} {
+    return [expr $interval * ceil (double($number) / $interval)]
+}
+
+set maxloc1 [snapup $maxloc1 25]
+set maxloc2 [snapup $maxloc2 25]
+if {$DEBUG} {puts "Row 1 high loc: $maxloc1"}
+if {$DEBUG} {puts "Row 2 high loc: $maxloc2"}
+
+
+# Calculate yfactor
+
+if {$rows == 1} {
+    set ygap 0
+}
+if {$DEBUG} {
+    puts "height = $height"
+    puts "ystart = $ystart"
+    puts "yend = $yend"
+    puts "ygap = $ygap"
+}
+
+set yfactor [expr (0.0 + $height - ($ystart + $yend + $ygap)) / \
+	($maxloc1 + $maxloc2)]
+
+# Calculate yrow1 and yrow2
+
+set yrow1 [expr $yfactor * $maxloc1]
+set yrow2 [expr $yfactor * $maxloc2]
+set ystart2 [expr $ystart + $yrow1 + $ygap]
+
+
+if {$DEBUG} {
+    puts "yfactor = $yfactor"
+    puts "yrow1 = $yrow1"
+    puts "yrow2 = $yrow2"
+}
+
+# Draw "rulers" with ticks and labels
+
+.c create line $xruler$c $ystart$c $xruler$c [expr $ystart + $yrow1]c
+set clabel [expr $xruler - ($xtick + $xlabel)]
+eval .c create text $clabel$c [expr $ystart - $yupcm]$c -anchor e -text cM $fontarg
+set tick 0
+while {$tick <= $maxloc1} {
+    set ytick [expr $ystart + ($tick * $yfactor)]
+    set ytick2 [expr $ystart + (($tick+25) * $yfactor)]
+    .c create line [expr $xruler - $xtick]$c $ytick$c $xruler$c $ytick$c
+    eval .c create text $clabel$c $ytick$c -anchor e -text $tick $fontarg
+    if {$tick < $maxloc1} {
+	.c create line [expr $xruler-($xtick)/2.0]$c $ytick2$c $xruler$c \
+		$ytick2$c
+    }
+    incr tick 50
+}
+
+
+if {$rows > 1} {
+    .c create line $xruler$c $ystart2$c $xruler$c [expr $ystart2 + $yrow2]c
+
+    set clabel [expr $xruler - ($xtick + $xlabel)]
+    eval .c create text $clabel$c [expr $ystart2 - $yupcm]$c -anchor e -text cM $fontarg
+    set tick 0
+    while {$tick <= $maxloc2} {
+	set ytick [expr $ystart2 + ($tick * $yfactor)]
+	set ytick2 [expr $ystart2 + (($tick+25) * $yfactor)]
+	.c create line [expr $xruler - $xtick]$c $ytick$c $xruler$c $ytick$c
+	eval .c create text $clabel$c $ytick$c -anchor e -text $tick $fontarg
+	if {$tick < $maxloc2} {
+	    .c create line [expr $xruler-($xtick/2.0)]$c $ytick2$c $xruler$c \
+		    $ytick2$c
+	}
+	incr tick 50
+    }
+}
+
+set column 0          ;# Incremented at beginning of each loop pass
+set chrom_index -1
+set row 1
+set xpos $xstart
+set ypos $ystart
+
+foreach chrom $Chromosome_Set {
+
+    incr column
+    incr chrom_index
+
+# (This is really for debugging purposes)
+    if {$user_chromosomes && $chrom_index >= $user_chromosomes} {
+	break
+    }
+
+# Advance to second row when needed
+    if {$column > $columns} {
+	set column 1
+	set row 2
+	set ypos [expr $ystart + $yrow1 + $ygap]
+	set xpos $xstart
+    }
+
+    set high_lod [lindex $High_LOD $chrom_index]
+
+# Create line axis for graph
+
+    set highest_loca [lindex $High_Loc $chrom_index]
+    set highest_mrk [lindex $High_Mark_Loc $chrom_index]
+    if {$highest_loca < $highest_mrk} {
+	set highest_loca $highest_mrk
+    }
+    set line_end_y [expr $ypos + $yfactor * $highest_loca]
+
+    .c create line $xpos$c $ypos$c $xpos$c $line_end_y$c
+
+    eval .c create text $xpos$c [expr $ypos - $yupnum]c \
+	    -text \"$chrom\" -anchor s $fontarg
+
+# If this is chromosome with highest LOD, or if past certain threshold
+#   draw horizontal scale
+
+    if {$chrom_index+1 == $highest_chromosome || \
+        ($lodscale != -100) && ($lodscale <= $high_lod)} {
+
+	set horsy [expr $horscoff + $ypos + $yfactor * \
+		[lindex $High_Loc $chrom_index]]
+	set highhort [expr ceil ($high_lod)]
+
+# Determine tick "schema"
+
+# Schema #1: highlod <= 5.0
+                 
+	set hortinc 1       ;# minimum tic increment
+	set hortminc 0      ;# "major" tic inc, 0 if all tics major
+        set highhort 2      ;# highest tic
+	if {$high_lod <= 5.0} {
+	    if {$high_lod > 2.0} {
+		set highhort [expr ceil ($high_lod)]
+	    }
+	    
+#Schema #2: 5.0 < highlod <= 9.0
+
+	} elseif {$high_lod <= 9.0} {
+	    set hortminc 5
+	    set highhort [expr ceil ($high_lod)]
+
+# Schema #3: 9.0 < highlod <19
+
+	} elseif {$high_lod <= 19.0} {
+	    set hortinc 1
+	    set hortminc 5
+	    set highhort [expr ceil($high_lod)]
+
+# Schema # 4: 19.0 < highlod <= 35
+
+	} elseif {$high_lod <= 35.0} {
+	    set hortinc 5
+	    set hortminc 10
+	    set highhort [expr 5 * ceil($high_lod / 5.0)]
+
+# Schema # 5: 35.0 < highlod < 45.0
+
+	} elseif {$high_lod <= 45.0} {
+	    set hortinc 5
+	    set hortminc 20
+	    set highhort [expr 5 * ceil($high_lod / 5.0)]
+
+
+# Schema # 6: 45.0 < highlod
+
+	} else {
+	    set hortinc 10
+	    set hortminc 50
+	    set highhort [expr 10 * ceil($high_lod / 10.0)]
+	}
+
+
+	set horsx [expr $xpos + $highhort * $xfactor]
+	.c create line $xpos$c $horsy$c $horsx$c $horsy$c
+
+# Put in label
+
+	eval .c create text [expr ($xpos + $horsx)/2.0]$c \
+           [expr $horsy + $horlaby]$c -text "LOD" -anchor n $fontarg
+
+# Draw tics
+
+	for {set h 0} {$h <= $highhort} {incr h $hortinc} {
+	    set hx [expr $xpos + $xfactor * double($h)]
+
+# Minor tics
+
+	    if {$hortminc!=0 && 0!=[expr $h % $hortminc]} {
+		.c create line $hx$c $horsy$c $hx$c [expr $horsy+$horsmtick]$c
+
+	    } else {
+
+# Major tics
+		.c create line $hx$c $horsy$c $hx$c [expr $horsy+$horstick]$c
+		eval .c create text $hx$c [expr $horsy+$horstick+$hortxto]$c \
+			-text $h -anchor n $fontarg
+	    }
+	}
+    }
+	
+# Now draw this chromosome for each layer that includes it
+
+    set ci -1
+    set clist {}
+    foreach cn $Chromosome_Number {
+	incr ci
+	if {$cn == $chrom} {
+	    lappend clist $ci
+	}
+    }
+
+#   puts "clist is $clist"
+    foreach cli $clist {
+#       puts "cli is $cli"
+	set chromdata [lindex $Chromosome $cli]
+	set chromlayer [lindex $Chromosome_Layer $cli]
+	set color [lindex $Layer_Color $chromlayer]
+	if {{} == $color} {
+	    set color black
+	}
+
+# Build up list of points transposed to correct geometry
+
+	set pointlist {}
+	set last_rawx 0.0
+	set last_conv_err_y -100.0
+#	puts "chromdata is $chromdata"
+	foreach pair $chromdata {
+	    set rawy [lindex $pair 0]    ;# Location
+	    set rawx [lindex $pair 1]    ;# LOD
+
+# if NaN, add this chromosome to bad chromosomes list
+
+	    if {![string compare "NAN" [string toupper \
+					    [string range $rawx 0 2]]]} {
+		if {!$no_conv_err} {
+		    incr nan_count
+		    if {-1 == [lsearch -exact $Nan_Chromosomes $chrom ]} {
+			lappend Nan_Chromosomes $chrom 
+		    }
+
+# Put a mark where convergence error is
+
+		    set y [expr 0.0 + $ypos + ($yfactor * $rawy)]
+		    set x [expr 0.0 + $xpos + ($xfactor * $last_rawx)]
+		    set x2 [expr 0.55 + $x]
+		    if {$last_conv_err_y + 40.0 < $rawy} {
+			.c create line $x$c $y$c $x2$c $y$c
+			eval .c create text [expr $x2 + .05]$c $y$c -anchor w -text C $fontarg
+			set last_conv_err_y $rawy
+			set last_y $y
+			set last_x2 $x2
+		    } else {
+			.c create line $x$c $y$c $last_x2$c $last_y$c
+		    }
+		}
+
+# Good number, so transpose
+
+	    } else {
+		set y [expr 0.0 + $ypos + ($yfactor * $rawy)]
+		set x [expr 0.0 + $xpos + ($xfactor * $rawx)]
+		set last_rawx $rawx
+		lappend pointlist $x$c
+		lappend pointlist $y$c
+	    }
+	}
+
+#   *** Plot graph of LOD scores ***
+
+	if {[llength $pointlist] == 2} {
+	    set pointlist [concat $pointlist $pointlist]
+	}
+
+	eval .c create line $pointlist -width $linewidth -fill $color $dash
+    }
+
+# Now, draw all of the marker tics
+
+    set marker_xy [lindex $Marker_Tics $chrom_index]
+
+    foreach xy $marker_xy {
+	set x [expr 0.0 + $xpos]
+	set y [expr 0.0 + $ypos + ($yfactor * $xy)]
+	set first_x $xpos
+	set last_x [expr $xpos - $marticklw]
+	.c create line $first_x$c $y$c $last_x$c $y$c
+    }
+
+# Increment xpos for next chrom
+
+   eval set xpos [expr $xpos + \$xmin$row + ($xfactor * $high_lod)]
+   if {$DEBUG} {puts "xpos: $xpos"}
+}
+
+# Display warning if NaN's encountered
+
+set total_height $height
+if {{} != $Nan_Chromosomes} {
+    set plural ""
+    set e_plural ""
+    if {[llength $Nan_Chromosomes] > 1} {
+        set plural "s: "
+    }
+    if {$nan_count > 1} {
+        set e_plural s
+    }
+    set nan_chroms [join $Nan_Chromosomes ", "]
+    set err_message "Convergence Error$e_plural on Chromosome$plural $nan_chroms"
+    set con_mess_y [expr $height + 0.05]
+    set con_mess_x [expr $width * 0.5]
+    eval .c create text $con_mess_x$c $con_mess_y$c -text \"$err_message\" -anchor n $fontarg
+    set total_height [expr $height + $reserve_height]
+}
+
+# Write postscript file if desired
+
+if {"" != $outputfile} {
+    .c postscript -file $outputfile -rotate t \
+	    -width [expr 1.0 * $width]$c \
+	    -height [expr 1.0 * $total_height]$c 
+}
+
+# ***************************************************************************
+#                       UTILITIES (pasted from solar.tcl)
+# ***************************************************************************
+
+proc is_float {string} {
+    if {1 == [scan $string "%g%s" test junk]} {
+	return 1
+    }
+    return 0
+}
+
+proc is_integer {string} {
+    if {1 == [scan $string "%d%s" test junk]} {
+	return 1
+    }
+    return 0
+}
+
+proc read_arglist {arg_list args} {
+    set case_insensitive 1
+
+    set pname [lindex [info level [expr [info level] - 1]] 0]
+    set target_pairs $args
+    set return_list {}
+    for {set i 0} {$i < [llength $arg_list]} {incr i} {
+	set identifier [lindex $arg_list $i]
+	if {"-" != [string range $identifier 0 0]} {
+	    lappend return_list $identifier
+	    continue
+	}
+	if {$case_insensitive} {
+	    set identifier [string tolower $identifier]
+	}
+	set found 0
+	for {set j 0} {$j < [llength $target_pairs]} {incr j 2} {
+	    set target [lindex $target_pairs $j]
+	    if {$case_insensitive} {
+		set target [string tolower $target]
+	    }
+	    if {![string compare $target $identifier]} {
+		set varname [lindex $target_pairs [expr $j + 1]]
+		if {[llength $varname] > 1} {
+#
+# statement evaluation specified
+#
+		    if {-1 != [string first VALUE $varname]} {
+#
+# expression has VALUE substitution so value is required
+#
+			incr i
+			if {[llength $arg_list] < [expr $i + 1]} {
+			error \
+		   "Missing value for argument $identifier to procedure $pname"
+			}
+			set value [lindex $arg_list $i]
+			if {"-" == [string range $value 0 0] && \
+			    ![is_float [lindex $value 0]]} {
+			    error \
+		   "Missing value for argument $identifier to procedure $pname"
+			}
+#
+# perform ONE substitution
+#
+			set position [string first VALUE $varname]
+			set length [string length $varname]
+			set left [expr $position - 1]
+			set right [expr $position + $length]
+			set block \
+"[string range $varname 0 $left]$value[string range $varname $right end]"
+                    } else {
+			set block $varname
+		    }
+		    uplevel $block
+#
+# "simple" assignment specified ; argument always required
+#
+		} else {
+		    incr i
+		    if {[llength $arg_list] < [expr $i + 1]} {
+			error \
+		   "Missing value for argument $identifier to procedure $pname"
+		    }
+		    set value [lindex $arg_list $i]
+		    if {"-" == [string range $value 0 0] && \
+			    ![is_float [lindex $value 0]]} {
+			error \
+		   "Missing value for argument $identifier to procedure $pname"
+		    }
+		    upvar $varname callervar
+		    set callervar $value
+		}
+		set found 1
+		break
+	    }
+	}
+	if {!$found} {
+	    error "Invalid argument [lindex $arg_list $i] to procedure $pname"
+	}
+    }
+    return $return_list
+}
+
+
+proc is_integer {string} {
+    if {1 == [scan $string "%d%s" test junk]} {
+	return 1
+    }
+    return 0
+}
+
+proc is_float {string} {
+    if {1 == [scan $string "%g%s" test junk]} {
+	return 1
+    }
+    return 0
+}
+
+proc is_nan {numstr} {
+    if {![string compare "NAN" [string toupper [string range $numstr 0 2]]]} {
+	return 1
+    }
+    return 0
+}
