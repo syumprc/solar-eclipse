@@ -3,9 +3,7 @@
 Header file for the RicVolumeSet class. The class can open a variety
 of different volume file formats. The data is read as a set of
 RicVolume structures.
-
-Copyright (C) 2007 by Bill Rogers - Research Imaging Center - UTHSCSA
-rogers@uthscsa.edu     
+ 
  */
  
 #ifndef _RICVOLUMESET_H
@@ -46,8 +44,6 @@ of different volume file formats. The data is read as a set of
 RicVolume structures. The orientation of the source file is converted to
 the internal class format which is the NEMA equivalent of XYZ---.
 
-Copyright (C) 2007 by Bill Rogers - Research Imaging Center - UTHSCSA
-rogers@uthscsa.edu     
  */
 
 class RicVolumeSet

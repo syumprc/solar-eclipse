@@ -4,9 +4,6 @@
 Spike created a java NEMA orientation converter from the original nifti c++
 source code. This version is derived from Spike's java code.
 
-Copyright (C) 2007  UTHSCSA - Research Imaging Center
-
-rogers@uthscsa.edu
 */
 
 

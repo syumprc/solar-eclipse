@@ -26,8 +26,6 @@ the internal XYZ--- orientation.
 Source file for the RicVolume class. The member functions allow
 manipulation of voxel data.
 
-Copyright (C) 2007 by Bill Rogers - UTHSCSA
-rogers@uthscsa.edu
 */
 using namespace std;
 
