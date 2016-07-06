@@ -3,11 +3,6 @@
  *
  *	Declarations of functions in the platform-specific public Tcl API.
  *
- * Copyright (c) 1998-1999 by Scriptics Corporation.
- *
- * See the file "license.terms" for information on usage and redistribution
- * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
- *
  * RCS: @(#) $Id: tkPlatDecls.h,v 1.7 2002/08/31 06:12:23 das Exp $
  */
 

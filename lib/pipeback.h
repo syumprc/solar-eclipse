@@ -2,13 +2,6 @@
  *   pipeback...return fd piped to a program's stdout
  *   add_argv...build variable list of arguments
  *
- *      Copyright (C) 1995 Southwest Foundation for Biomedical Research
- *                          All rights reserved.
- *                 Absolutely no warranty, express or implied.
- *
- * author:  Charles P. Peterson
- *   date:  June 23, 1995
- *
  */
 
 #ifndef PIPEBACK_H

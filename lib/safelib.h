@@ -1,13 +1,6 @@
 /* safelib.h
  * safe memory allocation and other generally useful functions
  *   (returns don't have to be checked; they are checked here)
- * 
- *      Copyright (C) 1995 Southwest Foundation for Biomedical Research
- *                          All rights reserved.
- *                 Absolutely no warranty, express or implied.
- *
- * author:  Charles P. Peterson
- *   date:  May 30, 1995
  *
  * comments: Requires that there be a function named 'error' to which a
  *   string is passed.  Also writes directly to standard error stream (2)

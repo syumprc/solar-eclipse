@@ -1,13 +1,6 @@
 /* pipeshell.h
  * list functions
  * 
- *      Copyright (C) 1995 Southwest Foundation for Biomedical Research
- *                          All rights reserved.
- *                 Absolutely no warranty, express or implied.
- *
- * author:  Charles P. Peterson
- *   date:  June 8, 1995
- *
  */
 
 #include "any_list.h"

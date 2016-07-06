@@ -6,10 +6,6 @@
  *	interfaces are not guaranteed to remain the same between
  *	versions.  Use at your own risk.
  *
- * Copyright (c) 1998-1999 by Scriptics Corporation.
- *
- * See the file "license.terms" for information on usage and redistribution
- * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
  * RCS: @(#) $Id: tclIntDecls.h,v 1.49.2.8 2005/03/15 16:29:53 kennykb Exp $
  */
