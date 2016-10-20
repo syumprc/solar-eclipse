@@ -9,7 +9,7 @@
 # All rights reserved.
 
 proc solar_tcl_version {} {
-    return "8.1.1 (General)"
+    return "8.1.2 (General)"
 }
 
 proc solar_up_date {} {
@@ -13337,7 +13337,7 @@ proc evdinx {{evdfile ""} args} {
     } elseif {$args != ""} {
 	error "Invalid argument $args to evdinx"
     }
-
+    
     if {$method==2} {
 	set covcols {{1}}
     } else {
@@ -13515,9 +13515,10 @@ proc evdout {args} {
     set savedname [full_filename evdout.startmodel]
     save model $savedname
     if {-1 != [string first "to_set_standard_model" [omega]]} {
-	polymod
+	
     }
-
+    polymod
+	constraint delete_all
     option modeltype evd2
     option evdphase 1
     option eigenvectors $eigenvectors
@@ -52372,7 +52373,6 @@ proc fakedata_bigped {nind ntrait} {
 #          puts "pvalue is [lindex $results 2]"
 #          mathmatrix reset
 # -
-
 proc fphi {args} {
     set indicator_only 0
     set debug0 0
@@ -52406,7 +52406,7 @@ proc fphi {args} {
 # Do SOLAR EVD -> evddata.out
 
     if {"" == $use_x || "" == $use_y || "" == $use_z} {
-	evdout
+	evdout -all 
     }
 
 # Get X, Y, Z matrices from evddata.out OR user matrices
@@ -52496,8 +52496,21 @@ proc fphi {args} {
     if {$denom == 0} {
 	set H2r 0
     } else {
-	set H2r [expr $SigmaG / $denom]
-    }
+		set H2r [expr $SigmaG / $denom]
+#		set weights [times $Z $Sigma2wls]
+#		set weights [power $weights -2]
+#		set a [expr [rows $weights ]*[mean $weights]]
+#		set c [times  [power [transpose $Lambda ] 2] $weights]
+#		puts "here"
+#		set det [expr (($a*[show $c 1 1]) - ([show $b 1 1]*[show $b 1 1]))]
+		
+#		set E [expr $SigmaE/(($SigmaG + $SigmaE)*($SigmaG + $SigmaE))]
+#		set G [expr $SigmaG/(($SigmaG + $SigmaE)*($SigmaG + $SigmaE))]
+	#	set Var [expr ((2*$G*$G*[show $c 1 1]) + (2*($G*$E)*[show $b 1 1]) +(($E*$E)*$a))/$det]
+	#	set SE $Var
+	#	puts "$SE"
+		
+	}
 
     if {$get_pvalue==0} {
 	return "$Indicator $H2r"
@@ -52597,6 +52610,426 @@ proc fphi {args} {
     set Pvalue [expr double($tsn + 1)/($nP + 1)]
     return [list $Indicator $H2r $Pvalue]
 }
+
+
+# solar::gpu_fphi
+#
+# Purpose: Fast test and heritability approximation performed on the GPU
+#
+# Usage: gpu_fphi [-trait_list <trait list file name>] [-p] [-np <nP>]
+# [-output <output file name>]
+#
+# Returns: Outputs scores and H2r values to <output file name>.  Optionally outputs
+# pvalues as well.
+#
+# Requirements: A NVIDIA CUDA Capable GPU with architecture greater than equal to 3.5
+#
+#        -trait_list <trait list file name> File containing all the traits that gpu_fphi will process
+#        -np <nP>       					Number of Permutations (default: 5000)
+#        -p         						Get pvalue
+#        -output <output file name>			CSV file where output is written
+#
+# Notes: The trait list file name should be setup as a file in which all the trait are listed 
+# and separated by spaces, not commas or newlines.  If you are experiencing difficulty in running
+# this program please try the following:
+# 	-Make sure LD_LIBRARY_PATH includes the cuda library, i.e. /usr/local/lib/cuda-7.5.
+#   -Ensure your GPU/GPUs are NVIDIA CUDA GPUs that have a device architecture greater than equal
+# 	to 3.5.
+#   -If you wish to run more than one GPU at once be sure your driver's compute mode is set to DEFAULT or 0.  
+#   This can be checked using the command nvidia-smi -c.
+#   -Try closing all processes currently running on the GPU to free up memory and device occupancy.  
+#	
+#   If none of the above works please feel free to email me at bdono09@gmail.com.
+#
+# Example:
+#
+#          load ped pedigree.csv
+#          load pheno phenotype.csv
+#          cov age sex
+#          gpu_fphi -trait_list trait_list.header -p -output results.csv
+# -
+proc gpu_fphi {args} {
+	
+    set get_pvalue 0
+    set trait_header_file {}
+    set nP 5000
+    set output_file_name {}
+# process optional arguments
+    
+    set badargs [read_arglist $args \
+             -trait_list trait_header_file \
+		     -p {set get_pvalue 1} \
+		     -np nP \
+		     -output output_file_name 
+		     ]
+
+    if {[llength $badargs]} {
+		error "Invalid arguments to fphi: $badargs"
+	}
+	
+    set pheno_file_name [phenotypes -files]  
+   
+    if {$pheno_file_name == {}} {
+		error "No phenotype loaded"
+	}
+	 
+	if {$trait_header_file == {}} {
+		error "No trait file list loaded"
+	}
+	
+	if {$output_file_name == {}} {
+		error "No output file specified"
+	}
+
+	set trait_file [open $trait_header_file]
+	set trait_string [split [read $trait_file]]
+	close $trait_file
+	set trait_matrix {}
+	set covars [covar]
+	set list $trait_string
+	set trait_list {}
+	putsnew $output_file_name
+	foreach item $list {
+		if {$item == {}} { 
+			continue 
+		} else {
+		catch {
+			trait $item
+			lappend trait_list $item
+			putsa $output_file_name $item
+			}
+		}
+	}
+	
+	set keepgoing 0
+	set index 0
+	
+	while {$keepgoing == 0} {
+		catch {
+			
+			set first_trait [lindex $trait_list $index]
+			model new 
+			foreach var $covars {
+				cov var
+			}
+			trait $first_trait
+			evdout -evectors -all
+			set evectors [load matrix "$first_trait/evectors.mat.csv"] 
+			incr keepgoing
+			
+		}
+		incr index
+		
+		if {$index == [expr [llength $trait_list] - 1] && $keepGoing == 0} {
+			error "Eigenvectors couldn't be created with data given"
+		}
+		
+	}
+	set idlist {}
+	set data_in [open "$pheno_file_name"]
+	gets $data_in line
+	set title_line [split $line ","]
+	set index [lsearch $title_line "id"]
+	if  {$index == -1} {
+		set index [lsearch $title_line "ID"]
+		if {$index == -1} {
+			error "Cannot find ID field in $pheno_file_name"
+		}
+	} 
+	while {[gets $data_in line] >= 0} {
+		set line_list [split $line ","]
+		lappend idlist [lindex $line_list $index]
+	}
+	close $data_in
+	ped2csv "pedindex.out" "pedindex.csv"
+	joinfiles "pedindex.csv" $pheno_file_name -o "ped_pheno.csv"
+	
+	set ped_pheno_in [open "ped_pheno.csv"]
+	gets $ped_pheno_in line
+	set title_line [split $line ","]
+	set ped_pheno_out "pedindex_$pheno_file_name"
+	putsnew $ped_pheno_out
+	putsa $ped_pheno_out "$line"
+	while {[gets $ped_pheno_in line] >= 0} {
+		set line_list [split $line ","]
+		set current_id [lindex $line_list 0]
+		set index [lsearch $idlist $current_id]
+		if { $index != -1 } {
+			putsa $ped_pheno_out "$line"
+		}
+	}
+	
+	close $ped_pheno_in
+	
+	
+
+   
+
+    set Y [load matrix -cols "$trait_list" "$ped_pheno_out"]
+    output $Y "Y.mat.csv"
+    
+    set Z [evdinz]
+    output $evectors "evectors.mat.csv"
+    output $Z "aux.mat.csv"
+    if {[llength [covariates]]} {
+		set X [evdinx]
+        output $X "X.mat.csv"
+        set I [identity [rows $X]] 
+        set XT [transpose $X]
+        set XTXI [inverse [times $XT $X]]
+        set XTXIXT [times $XTXI $XT]
+        set hat [minus $I [times $X $XTXIXT]] 
+        output $hat "hat.mat.csv"
+        
+        cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$nP" "$get_pvalue" "hat.mat.csv"
+	} else {
+		cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$nP" "$get_pvalue" 
+	}
+	puts "Done"
+		
+}
+
+# solar::polyclass_normalize --
+#
+# Purpose:  Runs sporadic model and inormal on a phenotype with or without a pedigree
+#
+# Usage:    polyclass_normalize [-create_pedigree] [-class <class values seperated by comma>] [-out <output filename>]
+#           
+#           Example:
+#             load phenotypes <phenotypes file>
+#             covariates <covariate list>
+#             trait  <trait to be analyized>
+#             polyclass_normalize -create_pedigree -class 1,2,3
+#
+#           Optional arguments:
+#            create_pedigree         ;# Option to be used if no pedigree is loaded
+#            class                   ;# Option to select classes to run inorm on separated by commas
+#            out                     ;# Option to set output name to a name not used as default
+#
+#
+#   Polyclass normalization function will perform normalization of datasets collected across different 
+# studies in preparation for mega-analysis. See Jahanshad an Kochunov Neuroimage. 2014 Apr 15;90:470-1. for details. 
+# In short, the data for each dataset should be coded by class variable with one class value (0, 1, 2, 3 ..) codding the individual datasets. 
+# The polyclass normalization will perform regression of the covarariates for each dataset and then inverse Gaussian normalization of the residuals. 
+# The outputs will be written in the file that can specified by the option -out.
+#
+# The polyclass normalization function will use the existing pedigree structure to regress residuals using mixed model analysis. 
+# The mega-pedigree is expected with non-overlapping subject ids. See the paper above for details on coding mega-pedigree structure. 
+# Alternatively -create_pedigree option can be used where subjects are #treated as unrelated individuals and linear model is used.
+#
+# A consistent set of covariates is expected for all datasets (classes), if covariate structure varies by dataset, 
+# make an inclusive list of covariates and fill "1" values for the datasets where the covariate is not present.  
+# -
+proc polyclass_normalize {args} {   
+	set create_pedigree 0
+        set classes ""
+        set optional_output_name ""
+        set proc_args [read_arglist $args -create_pedigree {set create_pedigree 1} -class classes -out optional_output_name]
+
+        if {[llength $proc_args]} {
+	   error "Invalid arguments to polyclass_normalize: $proc_args"
+          }
+
+        set phenofile [phenotypes -files]
+        
+        set covlist [cov]
+        set traitlist [trait]
+        
+        
+        if {$phenofile == {}} {
+            error "Phenotype file not found"
+        }
+  
+        if {$covlist == {}} {
+           
+            error "No covariates found"
+        }
+        
+        if {$create_pedigree == 1} {
+               create_fake_pedigree $phenofile
+               
+         }
+         
+         
+        
+        set inorm "inorm"
+
+        set name_list $inorm
+        
+ 
+        lappend name_list $traitlist
+        lappend name_list $phenofile
+        set total_out_filename [join $name_list "_" ]
+        if {$classes == ""} {            
+            model new
+            phenotypes $phenofile
+            trait $traitlist
+            foreach c $covlist {
+				cov $c
+			}
+           eval polygenic  -all  -sporadic -s  
+         
+          if {$optional_output_name != ""} { 
+			 set out_filename $optional_output_name
+			 inormal -trait "residual" -file [full_filename "sporadic.residuals"] -out $out_filename
+          } else { 
+			 set out_filename $total_out_filename
+			 inormal -trait "residual" -file [full_filename "sporadic.residuals"] -out $out_filename
+          }
+          
+          set file_out [open [full_filename "sporadic.residuals"]]
+          set lineNumber 0
+
+          puts "Saving normalized trait in $out_filename_filename"
+         
+        } else {
+          set list_of_classes [split $classes ","]
+
+          set comb_file 0
+          if {$optional_output_name != ""} { 
+             putsnew $optional_output_name
+             putsa $optional_output_name "id,$traitlist,class"
+          } else { 
+             putsnew $total_out_filename
+             putsa $total_out_filename "id,$traitlist,class"
+          }
+          split_class_file $phenofile
+          foreach i $list_of_classes {
+			set class_phenofile_list $i
+			lappend class_phenofile_list $phenofile
+			set class_phenofile [join $class_phenofile_list "_"]
+            model new
+
+            phenotypes $class_phenofile
+            trait $traitlist
+            foreach c $covlist {
+				cov $c
+			}
+            eval polygenic  -all  -sporadic -s               
+            set name_list $inorm
+            
+            lappend name_list $i
+           
+            lappend name_list $traitlist
+           
+            lappend name_list $phenofile
+            
+           
+            set out_filename [join $name_list "_"]
+            
+            inormal -trait "residual" -file [full_filename "sporadic.residuals"] -out $out_filename
+            
+            if {$optional_output_name != ""} { 
+              set file_out [open $out_filename]
+              set lineNumber 0
+              while {[gets $file_out line] >= 0} {
+                if {$lineNumber == 0} {
+                  incr lineNumber
+                } else {
+                  putsa $optional_output_name "$line,$i"
+                  incr lineNumber
+                }
+          
+              }
+              close $file_out
+              
+           } else {
+              set file_out [open $out_filename]
+              set lineNumber 0
+              while {[gets $file_out line] >= 0} {
+                if {$lineNumber == 0} {
+                  incr lineNumber
+                } else {
+                  putsa $total_out_filename "$line,$i"
+                  incr lineNumber
+                }
+          
+              }
+              close $file_out
+              
+             }
+
+              
+          }
+          
+          pheno load $phenofile
+
+          if {$optional_output_name != ""} {
+            puts "Saving normalized trait in $optional_output_name"
+          } else {
+            puts "Saving normalized trait in $total_out_filename"
+          }
+           
+        }
+        
+        
+	}
+
+  proc create_unique_pedigree {args} {
+	
+    set get_pvalue 0
+    set trait_header_file ""
+    set nP 5000
+    set output_file_name ""
+    set pedfilename ""
+# process optional arguments
+
+    set badargs [read_arglist $args \
+             -trait_list trait_header_file \
+		     -output output_file_name \
+		     -pedigree_file_name pedfilename]
+
+    if {[llength $badargs]} {
+		error "Invalid arguments to fphi: $badargs"
+	}
+	
+    set pheno_file_name [phenotypes -files]  
+   
+    if {$pheno_file_name == {}} {
+		error "No phenotype loaded"
+	}
+	 
+	if {$trait_header_file == {}} {
+		error "No trait file list loaded"
+	}
+	
+	
+	
+	set trait_file [open $trait_header_file]
+	set trait_string [split [read $trait_file]]
+	close $trait_file
+	set trait_matrix {}
+	
+	set list $trait_string
+	set trait_list {}
+	foreach item $list {
+		if {$item == {}} { 
+			continue 
+		} else {
+		catch {
+			trait $item
+			lappend trait_list $item
+			}
+		}
+	}
+	
+	close $trait_file
+	
+	selectfields $pheno_file_name $pedfilename ID  MO FA Sex MZTWIN HHID -o ped_$pedfilename
+	
+	
+	
+	
+	
+}     
+
+# solar::create_fake_pedigree --
+# "Purpose: This command creates a pedigree file given a phenotype file taken as input. 
+#
+#  Usage: create_fake_pedigree <phenotype filename> [-o output pedigree filename
+#       <phenotype filename> Phenotype filename to be used to create pedigree
+#	[-o <output pedigree filename>] Option to name output pedigree filename
+
 
 
 # solar::mathmatrix --
@@ -52774,3 +53207,16 @@ proc fphi {args} {
 # If a matrix filename ends in ".mat.csv" it will automatically be handled as
 # headerless matrix file and the -noheader argument is not required.
 #-
+
+
+# solar::split_class_file -- 
+#
+# Purpose: Splits a csv file based on a class column
+#          
+# Usage: split_class_file <csv file name>
+#
+# Example:  split_class_file pheno.csv
+#	pheno.csv is split into 0_pheno.csv, 1_pheno.csv,....,i_pheno.csv
+#
+# -
+
