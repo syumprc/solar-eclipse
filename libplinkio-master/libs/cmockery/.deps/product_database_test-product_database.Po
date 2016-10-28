@@ -1,0 +1,6 @@
+product_database_test-product_database.o: src/example/product_database.c \
+ /usr/include/stdc-predef.h src/example/database.h
+
+/usr/include/stdc-predef.h:
+
+src/example/database.h:

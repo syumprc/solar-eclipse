@@ -201,7 +201,10 @@ DECL(ConcatenateCmd);
 DECL(MathMatrixOutputCmd);
 DECL(PermuteFCmd);
 DECL(PermuteYCmd);
-
+DECL(RunCreateFakePedigreeCmd);
+DECL(RunSplitPhenoFileCmd);
+DECL(RuncudafphiCmd);
+DECL(RunPlinkConverter);
 int validate_solar (Tcl_Interp *interp);
 
 extern void setup_functions ();
@@ -289,7 +292,10 @@ extern "C" int Solar_Init (Tcl_Interp *interp)
     add_solar_command ("output", MathMatrixOutputCmd, interp);
     add_solar_command ("permutef", PermuteFCmd, interp);
     add_solar_command ("permutey", PermuteYCmd, interp);
-
+    add_solar_command ("create_fake_pedigree", RunCreateFakePedigreeCmd, interp);
+    add_solar_command ("split_class_file", RunSplitPhenoFileCmd, interp);
+    add_solar_command ("cuda_fphi", RuncudafphiCmd, interp);
+    add_solar_command ("plink_converter", RunPlinkConverter, interp);
 //  internal initializations (not subject to error)
 
     setup_functions ();

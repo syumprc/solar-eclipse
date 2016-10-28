@@ -53220,3 +53220,19 @@ proc polyclass_normalize {args} {
 #
 # -
 
+
+# solar::plink_converter -- 
+#
+# Purpose: Converts plink .bed, .fam, and .bim to .csv file
+#          
+# Usage: plink_converter -i <input base name> -o <output base name> optional:<-bin>
+#							 optional:<-max> <maximum snps per file>
+#
+# Example: plink_converter -i test -o test -bin -max 50000
+#          
+#			-bin Prints the number between 0 and 2 instead of alleles combination
+#			-max Sets the maximum number of snps in a file.  For example if a file
+#            contains 500 snps and the option -max 100 is used then five .csv files
+#            labeled <output_base_name>_<file number>.csv will be created.
+# -
+
