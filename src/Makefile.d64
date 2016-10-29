@@ -8,7 +8,7 @@ CXX=g++
 
 FFLAGS = -m64 -O2 -fno-second-underscore -fexceptions
 CFLAGS = -m64 -O2 -I../lib -DUSE_SAFELIB -fexceptions
-LDFLAGS = -m64 -L../lib -lsafe -ltcl8.4 -L/usr/lib32 -lm -lc -lstdc++ -ldl -fexceptions -lRicVolume -lNemaVolume -lfslio -lniftiio -lnifticdf -lznz -lz
+LDFLAGS = -m64 -L../lib -lsafe -ltcl8.4 -L/usr/lib32 -lm -lc -lstdc++ -ldl -fexceptions -lRicVolume -lNemaVolume -lfslio -lniftiio -lnifticdf -lznz -lz -lplinkio
 CPPFLAGS = -m64 -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DLINUX64
 CXXFLAGS = -O2
 
@@ -101,7 +101,10 @@ verbosity.o \
 token.o \
 scan.o \
 help.o \
-ccsearch.o
+ccsearch.o \
+create_fake_pedigree.o \
+split_pheno_file.o \
+plink_converter.o
 
 #
 # Fortran objects needed by fisher
