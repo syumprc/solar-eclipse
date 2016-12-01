@@ -593,7 +593,7 @@ const char* Matrix::load_pedigree ()
 		    ID_ibdid.find(id);
 		if (found == ID_ibdid.end())
 		{
-	          ID_ibdid.insert (std::make_pair<std::string,int>(id,ibdid));
+	          ID_ibdid.insert (std::pair<std::string,int>(id,ibdid));
 		}
 		else
 		{
@@ -618,7 +618,7 @@ const char* Matrix::load_pedigree ()
 		    IDFAM_ibdid.find(idfamid);
 		if (found == IDFAM_ibdid.end())
 		{
-		    IDFAM_ibdid.insert (std::make_pair<std::string,int>(idfamid,ibdid));
+		    IDFAM_ibdid.insert (std::pair<std::string,int>(idfamid,ibdid));
 		}
 		else
 		{
