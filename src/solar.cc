@@ -34,7 +34,7 @@ extern "C" void mp_setup ();
 
 const char *SolarVersion ()
 {
-    return "8.1.1";
+    return "8.1.4";
 }
 
 /*
@@ -203,8 +203,8 @@ DECL(PermuteFCmd);
 DECL(PermuteYCmd);
 DECL(RunCreateFakePedigreeCmd);
 DECL(RunSplitPhenoFileCmd);
-DECL(RuncudafphiCmd);
 DECL(RunPlinkConverter);
+DECL(RunreorderphenoCmd);
 int validate_solar (Tcl_Interp *interp);
 
 extern void setup_functions ();
@@ -294,8 +294,9 @@ extern "C" int Solar_Init (Tcl_Interp *interp)
     add_solar_command ("permutey", PermuteYCmd, interp);
     add_solar_command ("create_fake_pedigree", RunCreateFakePedigreeCmd, interp);
     add_solar_command ("split_class_file", RunSplitPhenoFileCmd, interp);
-    add_solar_command ("cuda_fphi", RuncudafphiCmd, interp);
     add_solar_command ("plink_converter", RunPlinkConverter, interp);
+    add_solar_command ("reorder_phenotype", RunreorderphenoCmd, interp);
+
 //  internal initializations (not subject to error)
 
     setup_functions ();

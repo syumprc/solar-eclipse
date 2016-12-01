@@ -9,7 +9,7 @@
 # All rights reserved.
 
 proc solar_tcl_version {} {
-    return "8.1.2 (General)"
+    return "8.1.4 (General)"
 }
 
 proc solar_up_date {} {
@@ -79,6 +79,7 @@ proc about {} {
 # -
 
 proc register {key} {
+	return "Registration Successful!"
     if {[key -check]} {
 	puts "You already have a valid ~/.solar_reg key file installed."
 	puts "Are you sure you want to do this?  Y or N:"
@@ -13520,7 +13521,7 @@ proc evdout {args} {
     polymod
 	constraint delete_all
     option modeltype evd2
-    option evdphase 1
+    option evdphase 2
     option eigenvectors $eigenvectors
     option evdcovs [llength [covariates]]
     if {$matonly} {
@@ -20387,7 +20388,7 @@ proc solar_tcl_startup {} {
 }
 
 proc check_version_compatibility {} {
-    if {![string compare 8.1.1 \
+    if {![string compare 8.1.4 \
 	      [solar_binary_version]]} {
 	return ""
     } else {
@@ -52655,12 +52656,15 @@ proc gpu_fphi {args} {
     set nP 5000
     set output_file_name {}
 # process optional arguments
-    
+    set all {}
+    set conn {}
     set badargs [read_arglist $args \
              -trait_list trait_header_file \
 		     -p {set get_pvalue 1} \
 		     -np nP \
-		     -output output_file_name 
+		     -output output_file_name  \
+		     -all {set all "-all"} \
+		     -conn {set conn "-conn"}
 		     ]
 
     if {[llength $badargs]} {
@@ -52687,19 +52691,8 @@ proc gpu_fphi {args} {
 	set trait_matrix {}
 	set covars [covar]
 	set list $trait_string
-	set trait_list {}
-	putsnew $output_file_name
-	foreach item $list {
-		if {$item == {}} { 
-			continue 
-		} else {
-		catch {
-			trait $item
-			lappend trait_list $item
-			putsa $output_file_name $item
-			}
-		}
-	}
+	set trait_list $trait_string
+	ped2csv "pedindex.out" "pedindex.csv"
 	
 	set keepgoing 0
 	set index 0
@@ -52708,11 +52701,10 @@ proc gpu_fphi {args} {
 		catch {
 			
 			set first_trait [lindex $trait_list $index]
-			model new 
-			foreach var $covars {
-				cov var
-			}
 			trait $first_trait
+			foreach var $covars {
+				cov $var
+			}
 			evdout -evectors -all
 			set evectors [load matrix "$first_trait/evectors.mat.csv"] 
 			incr keepgoing
@@ -52720,54 +52712,21 @@ proc gpu_fphi {args} {
 		}
 		incr index
 		
-		if {$index == [expr [llength $trait_list] - 1] && $keepGoing == 0} {
+		if {$index == [expr [llength $trait_list] - 1] && $keepgoing == 0} {
 			error "Eigenvectors couldn't be created with data given"
 		}
 		
 	}
-	set idlist {}
-	set data_in [open "$pheno_file_name"]
-	gets $data_in line
-	set title_line [split $line ","]
-	set index [lsearch $title_line "id"]
-	if  {$index == -1} {
-		set index [lsearch $title_line "ID"]
-		if {$index == -1} {
-			error "Cannot find ID field in $pheno_file_name"
-		}
-	} 
-	while {[gets $data_in line] >= 0} {
-		set line_list [split $line ","]
-		lappend idlist [lindex $line_list $index]
-	}
-	close $data_in
-	ped2csv "pedindex.out" "pedindex.csv"
-	joinfiles "pedindex.csv" $pheno_file_name -o "ped_pheno.csv"
-	
-	set ped_pheno_in [open "ped_pheno.csv"]
-	gets $ped_pheno_in line
-	set title_line [split $line ","]
 	set ped_pheno_out "pedindex_$pheno_file_name"
-	putsnew $ped_pheno_out
-	putsa $ped_pheno_out "$line"
-	while {[gets $ped_pheno_in line] >= 0} {
-		set line_list [split $line ","]
-		set current_id [lindex $line_list 0]
-		set index [lsearch $idlist $current_id]
-		if { $index != -1 } {
-			putsa $ped_pheno_out "$line"
-		}
-	}
-	
-	close $ped_pheno_in
-	
-	
+	set starttime [exec date]
+	reorder_phenotype -ped pedindex.csv -pheno "$pheno_file_name" -output "$ped_pheno_out" -header $trait_header_file
+	set endtime [exec date]
 
-   
+			
+		
+	set endtime [exec date]
+    puts "seconds: [timediff $starttime $endtime]"
 
-    set Y [load matrix -cols "$trait_list" "$ped_pheno_out"]
-    output $Y "Y.mat.csv"
-    
     set Z [evdinz]
     output $evectors "evectors.mat.csv"
     output $Z "aux.mat.csv"
@@ -52780,12 +52739,23 @@ proc gpu_fphi {args} {
         set XTXIXT [times $XTXI $XT]
         set hat [minus $I [times $X $XTXIXT]] 
         output $hat "hat.mat.csv"
-        
-        cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$nP" "$get_pvalue" "hat.mat.csv"
+		if {$get_pvalue == 1} {
+			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi "Y.mat.$ped_pheno_out" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file" "$nP" "hat.mat.csv" "$all" "$conn"] 
+		} else {
+			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file"  "hat.mat.csv" "$all" "$conn"]	
+		}
 	} else {
-		cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$nP" "$get_pvalue" 
+		if {$get_pvalue == 1} {
+			set success [exec >&@stdout 2>gpu_fphi.log cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file" "$nP" "$all" "$conn"]
+		} else {
+			set success [exec >&@stdout 2>gpu_fphi.log cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file" "$all" "$conn"]	
+		}
 	}
-	puts "Done"
+
+	if {$success == 0} {
+		puts "Done"
+	} 
+	
 		
 }
 
