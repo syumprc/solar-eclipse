@@ -52334,7 +52334,165 @@ proc fakedata_bigped {nind ntrait} {
     close $ofile
     return OK
 }
+## ********************************************************
+ ##
+ ## Description: timers.tcl Version 1.0
+ ## Provides timing routines for measuring the performance
+ ## of Tcl code.
+ ##
+ ## Comments:
+ ## I tried using various forms of "calibration" to
+ ## "improve" the quality of the reported values, the net
+ ## result was that the "bare" calls are as accurate as the
+ ## calibrated versions -- these calls are VERY fast!
+ ## Accuracy is at least 1% of the reported time.
+ ##
+ ## ********************************************************
 
+ ;#barecode
+
+ package provide timers 1.0
+
+ ;## i like to use the ::TIMEIT flag to switch timing
+ ;## code on and off.  0 for false, 1 for true.
+ if { ! [ info exists ::TIMEIT ] } {
+    set ::TIMEIT 1
+    }
+
+ ;## initialize the default start tag as a safety feature
+ ;## in case someone calls __t::end before __t::start.
+ namespace eval __t { set S 0 }
+
+ ;## short circuit efficiently if debugging is off
+ if { ! $::TIMEIT } {
+    proc __t::start { args } {}
+    proc __t::end   { args } {}
+    proc __t::mark  { args } {}
+    return {}
+    }
+
+ ;## so we can stand alone and still be useful!
+ if { ! [ llength [ info commands myName ] ] } {
+    proc myName {} { return [ lindex [info level -1] 0 ] }
+    }
+ if { ! [ llength [ info commands addLogEntry ] ] } {
+    proc addLogEntry { args } { puts $args }
+    }
+
+ ;#end
+
+
+ ## ********************************************************
+ ##
+ ## Name: __t::start
+ ##
+ ## Description:
+ ## Set the start point for timing.  As many start points
+ ## as are needed may be defined using the optional "tag"
+ ## argument.
+ ##
+ ## Parameters:
+ ## tag - an optional modifcation to the name of the timer
+ ##
+ ## Usage:
+ ##       proc timeit {} {
+ ##            __t::start
+ ##            __t::end "null timing loop"
+ ##       }
+ ##
+ ## Comments:
+ ##
+
+ proc __t::start { { tag "" } } {
+      set ms [ clock clicks -milliseconds ]
+      set us [ clock clicks ]
+      set ::__t::S$tag [ list $us $ms ]
+ }
+ ## ********************************************************
+
+ ## ********************************************************
+ ##
+ ## Name: __t::end
+ ##
+ ## Description:
+ ## Set a timing endpoint and issue a report.
+ ##
+ ## Parameters:
+ ## msg - a message to be interpolated into the report
+ ## tag - used to identify a start point
+ ## logfile - optional third argument to addLogEntry, q.v.
+ ##
+ ## Usage:
+ ##         proc timeit {} {
+ ##              __t::start
+ ##              __t::end "null timing loop"
+ ##         }
+ ##
+ ## Comments:
+ ## The $msg argument will be used in the log entry.
+ ## None of the arguments is required.
+ ## Use the command __t::mark if you just want the value back.
+ ## This command does not return anything.
+
+ proc __t::end { { msg "" } { tag "" } { logfile "" } } {
+      set ut [ clock clicks ]
+      set mt [ clock clicks -milliseconds ]
+      set ust [ lindex [ set ::__t::S$tag ] 0 ]
+      set mst [ lindex [ set ::__t::S$tag ] 1 ]
+      set udt [ expr { ($ut-$ust)/1000000.0 } ]
+      set mdt [ expr { ($mt-$mst)/1000.0    } ]
+      set dt $udt
+      if { $dt < 0 || $dt > 1 } { set dt $mdt }
+      set caller [ uplevel myName ]
+      ;## caught because we probably don't want to let a
+      ;## timing code exception cause a blip.
+      catch {
+         addLogEntry "$msg $dt sec." "0" $caller "" $logfile
+         }
+      __t::start $tag
+ }
+ ## ********************************************************
+
+ ## ********************************************************
+ ##
+ ## Name: __t::mark
+ ##
+ ## Description:
+ ## Set a timing endpoint and return the last dt.
+ ##
+ ## Parameters:
+ ## tag - an optional modifcation to the name of the timer
+ ##
+ ## Usage:
+ ##         proc timeit {} {
+ ##              __t::start
+ ##              return "null call took [ __t::mark ] seconds"
+ ##         }
+ ##
+ ## Comments:
+ ## This is the benchmarking call.  Note that __t::start
+ ## MUST be called explicitly to reset the timer.
+
+ proc __t::mark { { tag "" } } {
+      set ut [ clock clicks ]
+      set mt [ clock clicks -milliseconds ]
+      set ust [ lindex [ set ::__t::S$tag ] 0 ]
+      set mst [ lindex [ set ::__t::S$tag ] 1 ]
+      set udt [ expr { ($ut-$ust)/1000000.0 } ]
+      set mdt [ expr { ($mt-$mst)/1000.0    } ]
+      set dt $udt
+      if { $dt < 0 || $dt > 1 } { set dt $mdt }
+      return $dt
+ }
+ ## ********************************************************
+ proc dt { ustart mstart } {
+     set ut [ clock clicks ]
+     set mt [ clock clicks -milliseconds ]
+     set udt [ expr { ($ut-$ustart)/1000000.0 } ]
+     set mdt [ expr { ($mt-$mstart)/1000.0    } ]
+     if { $udt < 0 || $udt > 1 } { return $mdt }
+     return $udt
+ }
 # solar::fphi
 #
 # Purpose: Fast test and heritability approximation (Experimental)
@@ -52430,8 +52588,8 @@ proc fphi {args} {
     } else {
 	set Z $use_z
     }
-
 # Use OLS to get B
+	set starttime [__t::start]
 
     set B [ols $Y $X]
 
@@ -52514,7 +52672,8 @@ proc fphi {args} {
 	}
 
     if {$get_pvalue==0} {
-	return "$Indicator $H2r"
+	set end [__t::mark]
+	return "$Indicator $H2r $end"
     }
 
 # ***********************************************************************
@@ -52740,15 +52899,15 @@ proc gpu_fphi {args} {
         set hat [minus $I [times $X $XTXIXT]] 
         output $hat "hat.mat.csv"
 		if {$get_pvalue == 1} {
-			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi "Y.mat.$ped_pheno_out" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file" "$nP" "hat.mat.csv" "$all" "$conn"] 
+			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"  -np "$nP"  -cov "X.mat.csv"] 
 		} else {
-			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file"  "hat.mat.csv" "$all" "$conn"]	
+			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"   -cov "X.mat.csv"] 
 		}
 	} else {
 		if {$get_pvalue == 1} {
-			set success [exec >&@stdout 2>gpu_fphi.log cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file" "$nP" "$all" "$conn"]
+			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"  -np "$nP" ] 
 		} else {
-			set success [exec >&@stdout 2>gpu_fphi.log cuda_fphi "Y.mat.csv" "aux.mat.csv" "evectors.mat.csv" "$output_file_name" "$trait_header_file" "$all" "$conn"]	
+			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"] 
 		}
 	}
 
@@ -52757,6 +52916,80 @@ proc gpu_fphi {args} {
 	} 
 	
 		
+}
+
+proc gpu_fphi_qsub_prep {args} {
+	
+	
+
+	set pedigree_name ""
+	set pheno_name ""
+	set covlist {}
+	set pvalue 0
+	set base_filename ""
+	set trait_header ""
+
+	set badargs [read_arglist $args \
+				-ped pedigree_name \
+				-pheno pheno_name \
+				-trait_header trait_header \
+				-covar covlist \
+				-p {set pvalue 1} \
+				-basename base_filename]
+				
+	load ped $pedigree_name
+
+	load pheno $pheno_name		
+	
+	set traits_in [open $trait_header]
+
+	
+	set trait_list [split [read $traits_in]]
+	close $traits_in
+
+	foreach cov_value $covlist {
+		covar $cov_value
+	
+	}
+	set traits {}
+	foreach trait_value $trait_list {
+		catch {
+			trait $trait_value
+			lappend traits $trait_value
+		
+		}
+	
+	}
+
+	foreach trait_value $traits {
+	
+		catch {
+			trait $trait_value
+			evdout -all -evectors
+			set evectors [load matrix "$trait_value/evectors.mat.csv"]
+			break;
+		}
+	
+	}
+	output $evectors "evectors.mat.csv"
+	set X [evdinx]
+	output $X "cov.mat.csv"
+	output [evdinz] "aux.mat.csv"
+	
+	putsnew $pheno_name.header
+	putsa $pheno_name.header "[join $traits " "]" 
+	ped2csv "pedindex.out" "pedindex.csv"
+	set ped_pheno_out "pedindex_$pheno_name"
+	reorder_phenotype -ped "pedindex.csv" -pheno "$pheno_name" -output "$ped_pheno_out" -header "$pheno_name.header"	
+	exec initialize_connectivity_matrix "$pheno_name.header" "$base_filename.h2r_connectivity_matrix.h5"
+	exec initialize_connectivity_matrix "$pheno_name.header" "$base_filename.indicator_connectivity_matrix.h5"
+	
+	if {$pvalue == 1} {
+		exec initialize_connectivity_matrix "$pheno_name.header" "$base_filename.pvalue_connectivity_matrix.h5"
+	}
+
+
+	
 }
 
 # solar::polyclass_normalize --
