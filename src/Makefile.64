@@ -6,11 +6,11 @@ FC=gfortran
 CC=gcc
 CXX=g++
 
-FFLAGS = -m64 -static -O2 -fno-second-underscore -fexceptions
-CFLAGS = -m64 -static -O2 -I../lib -DUSE_SAFELIB -fexceptions
-LDFLAGS = -m64 -static -L../lib -lsafe -ltcl8.4 -L/usr/lib32 -lm -lc -lstdc++ -ldl -fexceptions -lRicVolume -lNemaVolume -lfslio -lniftiio -lnifticdf -lznz -lz -lplinkio
-CPPFLAGS = -m64 -static -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DLINUX64 
-CXXFLAGS = -O2
+FFLAGS = -m64 -static  -O2 -fno-second-underscore -fexceptions -std=c++11
+CFLAGS = -m64 -static -O2 -I../lib -DUSE_SAFELIB -fexceptions -fgnu89-inline -std=c++11
+LDFLAGS =  -m64 -g   -static -Wl,--start-group    -L../lib -l:libsafe.a -l:libtcl8.4.a -L/usr/lib/x86_64-linux-gnu -L/usr/lib32 -L/usr/lib -L/usr/local/cuda-8.0/lib64 -pthread -l:libgfortran.a  -l:libquadmath.a -l:libstdc++.a -ldl -Wl,--whole-archive -l:libcudafphi.a -l:libcudart_static.a  -l:libculibos.a   -l:librt.a -Wl,--no-whole-archive -l:libgcc.a   -l:libRicVolume.a -l:libtcl8.4.a -l:libtclstub8.4.a -l:libNemaVolume.a -l:libfslio.a -l:libniftiio.a -l:libnifticdf.a -l:libznz.a  -l:libplinkio.a  -Wl,--end-group
+CPPFLAGS = -m64 -static -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DLINUX64 -std=c++11 -Wl,
+CXXFLAGS = -O2 -static -DUSE_SAFELIB -DTR1 -DLINUX64 -std=c++11
 
 # End of system specific definitions
 
@@ -104,7 +104,10 @@ help.o \
 ccsearch.o \
 create_fake_pedigree.o \
 split_pheno_file.o \
-plink_converter.o
+plink_converter.o \
+reorder_phenotype.o
+
+
 
 #
 # Fortran objects needed by fisher
@@ -172,9 +175,9 @@ cdfchi.o:	cdfchi.f
 #	$(CXX) $(CPPFLAGS) -O3 -c -o mathmatrix.o mathmatrix.cc
 
 solarmain: $(INCLUDES) $(OBS) $(FOBS)
-	$(CC) $(CPPFLAGS) -O2 -c solar.cc
+	$(CXX) $(CPPFLAGS) -O2 -c solar.cc
 	$(CXX) $(CPPFLAGS) -c voxel.cc
-	$(FC) -o solarmain $(OBS) $(FOBS) $(LDFLAGS)
+	$(FC)  -o solarmain  $(OBS) $(FOBS) $(LDFLAGS)
 
 install:
 	/usr/sbin/install -f ../bin -o solarmain

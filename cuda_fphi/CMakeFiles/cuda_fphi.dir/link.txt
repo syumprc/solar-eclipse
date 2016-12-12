@@ -1,0 +1,1 @@
+/usr/bin/c++    -O3    CMakeFiles/cuda_fphi.dir/src/cuda_fphi_main.cc.o CMakeFiles/cuda_fphi.dir/src/write_to_hdf5.cc.o  -o bin/cuda_fphi  -L/home/brian/cuda_fphi/lib -rdynamic -lcuda_fphi -lcudart_static -lcublas_static -lculibos -lhdf5_cpp -lhdf5 -lz -lncurses -ltinfo -lgpm -pthread -ldl -lc -lrt -Wl,-rpath,/home/brian/cuda_fphi/lib 

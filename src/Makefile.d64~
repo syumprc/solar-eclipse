@@ -1,0 +1,195 @@
+all:	solarmain
+
+# gcc linux
+
+FC=gfortran
+CC=gcc
+CXX=g++
+
+FFLAGS = -m64 -O2 -fno-second-underscore -fexceptions
+CFLAGS = -m64 -O2 -I../lib -DUSE_SAFELIB -fexceptions
+LDFLAGS = -m64 -L../lib -lsafe -ltcl8.4 -L/usr/lib32 -lm -lc -lstdc++ -ldl -fexceptions -lRicVolume -lNemaVolume -lfslio -lniftiio -lnifticdf -lznz -lz -lplinkio
+CPPFLAGS = -m64 -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DLINUX64
+CXXFLAGS = -O2
+
+# End of system specific definitions
+
+INCLUDES= \
+solar.h \
+expression.h \
+token.h \
+config.h \
+tablefile.h \
+plotpipe.h \
+mvn.h \
+nrutil.h
+
+
+OBS= \
+mathmatrix.o \
+matrix.o \
+voxel.o \
+zscore.o \
+evd.o \
+evdlik.o \
+define.o \
+ipmpar.o \
+spmpar.o \
+cdfnor.o \
+normal.o \
+snp.o \
+fit2dp.o \
+dppfa.o \
+scratchfile.o \
+scale.o \
+ccuserid.o \
+alnormc.o \
+eqvar.o \
+ncdf.o \
+npdf.o \
+mehd.o \
+nrutil.o \
+w_mehd.o \
+fun_mehd.o \
+ibs.o \
+drand.o \
+simqtl.o \
+howclose.o \
+fisherpedigree.o \
+covariate.o \
+writestr.o \
+parameter.o \
+dasycov.o \
+phidens.o \
+alnorm.o \
+hessin.o \
+mvncdf.o \
+ddfun.o \
+dfun.o \
+solar.o \
+solarfilecmd.o \
+phenotypes.o \
+option.o \
+solarmain.o \
+mu.o \
+loglike.o \
+model.o \
+omega.o \
+trait.o \
+function.o \
+expression.o \
+field.o \
+marker.o \
+pedigree.o \
+solarfile.o \
+tablefilecmd.o \
+tablefile.o \
+constraint.o \
+tclgr.o \
+plotpipe.o \
+chi.o \
+cdfchi.o \
+key.o \
+freq.o \
+ibd.o \
+mibd.o \
+ibdoption.o \
+map.o \
+maximize.o \
+loadsave.o \
+verbosity.o \
+token.o \
+scan.o \
+help.o \
+ccsearch.o \
+create_fake_pedigree.o \
+split_pheno_file.o \
+plink_converter.o \
+reorder_phenotype.o
+
+#
+# Fortran objects needed by fisher
+#
+FOBS= \
+evdout.o \
+pinput.o \
+preopt.o \
+preped.o \
+symeig.o \
+eigstruc.o \
+ppnd.o \
+dcovar.o \
+dmean.o \
+smpoutput.o \
+inital.o \
+dcopyped.o \
+optima.o \
+astop.o \
+asycov.o \
+beta.o \
+calc.o \
+chisq.o \
+clear.o \
+copyped.o \
+covar.o \
+delta7.o \
+digam.o \
+direct.o \
+edftst.o \
+fdist.o \
+fun.o \
+gamlog.o \
+gaucdf.o \
+hpsort.o \
+kin.o \
+linpack.o \
+logo.o \
+loop.o \
+mblank.o \
+newlik.o \
+output.o \
+pedtst.o \
+fortfiles.o \
+qdprog.o \
+random.o \
+resid.o \
+scor.o \
+search.o \
+settab.o \
+sweep.o \
+tdist.o \
+trigam.o \
+upcase.o \
+yesno.o
+
+
+# historically problems with cdfchi optimized to -O2 but not -O1
+cdfchi.o:	cdfchi.f
+	$(FC) $(FFLAGS) -O1 -c -o cdfchi.o cdfchi.f
+
+# gcc authors say -O3 option not for general use but only when benchmarked
+# The following have been benchmarked, no improvement or worse
+# mathmatrix.o:	mathmatrix.cc
+#	$(CXX) $(CPPFLAGS) -O3 -c -o mathmatrix.o mathmatrix.cc
+
+solarmain: $(INCLUDES) $(OBS) $(FOBS)
+	$(CC) $(CPPFLAGS) -O2 -c solar.cc
+	$(CXX) $(CPPFLAGS) -c voxel.cc
+	$(FC) -o solarmain $(OBS) $(FOBS) $(LDFLAGS)
+
+install:
+	/usr/sbin/install -f ../bin -o solarmain
+
+
+ecalc:	ecalc.o expression.o token.o scan.o function.o
+	CC -g -o ecalc ecalc.o expression.o token.o scan.o function.o $(LDFLAGS)
+
+clean:	
+	rm -f *.o solarmain
+
+copyobj:
+	cp *.o opt
+	cp solarmain opt
+
+ccclean: 
+	rm $(OBS)

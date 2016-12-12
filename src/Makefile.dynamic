@@ -104,7 +104,8 @@ help.o \
 ccsearch.o \
 create_fake_pedigree.o \
 split_pheno_file.o \
-plink_converter.o
+plink_converter.o \
+reorder_phenotype.o
 
 #
 # Fortran objects needed by fisher

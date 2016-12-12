@@ -1,9 +1,0 @@
-cudafphi Installation Instructions:
-	Compile libcudafphi.so and put in lib directory
-	Edit makefile in src directory to include cuda_fphimain.cc and .o as well as the libraries cudafphi, cudart, and pthread
-	Before using make set be sure to entire export LD_LIBRARY=$LD_LIBRARY_PATH:/usr/local/<cuda toolkit version goes here>/<lib64 or lib>:../lib
-	Run make
-
-	Any issues please contact me at bdono919@gmail.com
-	
-	
