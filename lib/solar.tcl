@@ -52892,22 +52892,16 @@ proc gpu_fphi {args} {
     if {[llength [covariates]]} {
 		set X [evdinx]
         output $X "X.mat.csv"
-        set I [identity [rows $X]] 
-        set XT [transpose $X]
-        set XTXI [inverse [times $XT $X]]
-        set XTXIXT [times $XTXI $XT]
-        set hat [minus $I [times $X $XTXIXT]] 
-        output $hat "hat.mat.csv"
 		if {$get_pvalue == 1} {
-			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"  -np "$nP"  -cov "X.mat.csv"] 
+			set success [cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"  -np "$nP"  -cov "X.mat.csv"] 
 		} else {
-			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"   -cov "X.mat.csv"] 
+			set success [cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"   -cov "X.mat.csv"] 
 		}
 	} else {
 		if {$get_pvalue == 1} {
-			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"  -np "$nP" ] 
+			set success [cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"  -np "$nP" ] 
 		} else {
-			set success [exec >&@stdout  2>gpu_fphi.log cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"] 
+			set success [cuda_fphi -Y "Y.mat.$ped_pheno_out" -aux "aux.mat.csv"  -eigen "evectors.mat.csv"  -out "$output_file_name"  -header "$trait_header_file"] 
 		}
 	}
 
