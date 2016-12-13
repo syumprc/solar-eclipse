@@ -205,6 +205,9 @@ DECL(RunCreateFakePedigreeCmd);
 DECL(RunSplitPhenoFileCmd);
 DECL(RunPlinkConverter);
 DECL(RunreorderphenoCmd);
+#ifdef CUDA_FPHI
+DECL(RuncudafphiCmd)
+#endif
 int validate_solar (Tcl_Interp *interp);
 
 extern void setup_functions ();
@@ -296,7 +299,9 @@ extern "C" int Solar_Init (Tcl_Interp *interp)
     add_solar_command ("split_class_file", RunSplitPhenoFileCmd, interp);
     add_solar_command ("plink_converter", RunPlinkConverter, interp);
     add_solar_command ("reorder_phenotype", RunreorderphenoCmd, interp);
-
+#ifdef CUDA_FPHI    
+    add_solar_command ("cuda_fphi", RuncudafphiCmd, interp);
+#endif
 //  internal initializations (not subject to error)
 
     setup_functions ();

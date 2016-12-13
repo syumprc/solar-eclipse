@@ -8,8 +8,8 @@ CXX=g++
 
 FFLAGS = -O1 -fno-second-underscore -fexceptions -m32
 CFLAGS = -O2 -I../lib -DUSE_SAFELIB -fexceptions -m32
-LDFLAGS = -L../lib -L/usr/local/lib -lsafe -ltcl8.4  -lm -lc -lstdc++ -ldl -fexceptions -m32 -lznz -lRicVolumed -lNemaVolumed -lfslio -lniftiio -lnifticdf -lz -lplinkio
-CXXFLAGS = -O2 -std=c++0x -I../lib -I../ -DUSE_SAFELIB -fexceptions -m32 -DNO_RICVOLUMESET
+LDFLAGS = -L../lib -L/usr/local/lib -lcuda_fphi -lcublas_static -lculibos -lcudart_static -lhdf5_cpp -lhdf5 -lncurses -ltinfo -lz -lrt -lgpm -lsafe -ltcl8.4  -lm -lc -lstdc++ -ldl -fexceptions -m32 -lznz -lRicVolumed -lNemaVolumed -lfslio -lniftiio -lnifticdf -lz -lplinkio
+CXXFLAGS = -O2 -std=c++0x -I../lib -I../ -DUSE_SAFELIB -fexceptions -m32 -DNO_RICVOLUMESET -DCUDA_FPHI
 
 # End of system specific definitions
 
