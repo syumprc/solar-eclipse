@@ -106,7 +106,8 @@ create_fake_pedigree.o \
 split_pheno_file.o \
 plink_converter.o \
 reorder_phenotype.o \
-cuda_fphi_main.o
+cuda_fphi_main.o \
+pedifromsnps.o
 
 #
 # Fortran objects needed by fisher

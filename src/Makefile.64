@@ -10,7 +10,7 @@ FFLAGS = -m64 -static -O2 -fno-second-underscore -fexceptions
 CFLAGS = -m64 -static -O2 -I../lib -DUSE_SAFELIB -fexceptions
 LDFLAGS = -m64 -static -L../lib  -L/usr/lib32   -lsafe -ltcl8.4 -fexceptions -lm -lc -lstdc++   -lRicVolume -lNemaVolume -lfslio -lniftiio -lnifticdf -lznz -lz -lplinkio -ldl
 CPPFLAGS = -m64 -static -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DLINUX64 
-CXXFLAGS = -O2
+CXXFLAGS = -O2 -std=c++11
 
 # End of system specific definitions
 
@@ -105,7 +105,8 @@ ccsearch.o \
 create_fake_pedigree.o \
 split_pheno_file.o \
 plink_converter.o \
-reorder_phenotype.o
+reorder_phenotype.o \
+pedifromsnps.o
 
 #
 # Fortran objects needed by fisher

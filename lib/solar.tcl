@@ -52612,17 +52612,17 @@ proc fphi {args} {
 #     and quit if statistic is non-positive or all that was asked for
 
     set rsig [expr 1.0 / [mean $F]]
-    set test1m [times [times $rsig $Lt] [minus [times $rsig $F] 1]]
-    set Indicator [show $test1m 1 1]
-    if {$Indicator <= 0} {
-	if {$indicator_only} {
-	    return 0
-	}
-	return {0 0}
-    }
-    if {$indicator_only} {
-	return $Indicator
-    }
+#    set test1m [times [times $rsig $Lt] [minus [times $rsig $F] 1]]
+ #   set Indicator [show $test1m 1 1]
+ #   if {$Indicator <= 0} {
+#	if {$indicator_only} {
+	   # return 0
+	#}
+	#return {0 0}
+    #}
+    #if {$indicator_only} {
+	#return $Indicator
+    #}
     ifdebug0 puts "Indicator Variable: $Indicator"
 
 # 1(g)i. and 1(g)ii.
@@ -52945,17 +52945,9 @@ proc gpu_fphi_qsub_prep {args} {
 		covar $cov_value
 	
 	}
-	set traits {}
-	foreach trait_value $trait_list {
-		catch {
-			trait $trait_value
-			lappend traits $trait_value
-		
-		}
-	
-	}
 
-	foreach trait_value $traits {
+
+	foreach trait_value $trait_list {
 	
 		catch {
 			trait $trait_value
@@ -52969,9 +52961,6 @@ proc gpu_fphi_qsub_prep {args} {
 	set X [evdinx]
 	output $X "cov.mat.csv"
 	output [evdinz] "aux.mat.csv"
-	
-	putsnew $pheno_name.header
-	putsa $pheno_name.header "[join $traits " "]" 
 	ped2csv "pedindex.out" "pedindex.csv"
 	set ped_pheno_out "pedindex_$pheno_name"
 	reorder_phenotype -ped "pedindex.csv" -pheno "$pheno_name" -output "$ped_pheno_out" -header "$pheno_name.header"	

@@ -10,7 +10,7 @@ FFLAGS = -m64 -O2 -fno-second-underscore -fexceptions
 CFLAGS = -m64 -O2 -I../lib -DUSE_SAFELIB -fexceptions
 LDFLAGS = -m64 -L../lib -lsafe -ltcl8.4 -L/usr/lib32 -lcuda_fphi -lcublas_static -lculibos -lcudart_static -lhdf5_cpp -lhdf5 -lncurses -ltinfo -lz -lrt -lgpm -pthread -lm -lc -lstdc++ -ldl -fexceptions -lRicVolume -lNemaVolume -lfslio -lniftiio -lnifticdf -lznz -lz -lplinkio
 CPPFLAGS = -m64 -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DCUDA_FPHI
-CXXFLAGS = -O2
+CXXFLAGS = -O2 -std=c++11
 
 # End of system specific definitions
 
@@ -106,7 +106,8 @@ create_fake_pedigree.o \
 split_pheno_file.o \
 plink_converter.o \
 reorder_phenotype.o \
-cuda_fphi_main.o
+cuda_fphi_main.o \
+pedifromsnps.o
 
 #
 # Fortran objects needed by fisher
