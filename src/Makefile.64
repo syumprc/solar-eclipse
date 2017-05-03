@@ -6,11 +6,11 @@ FC=gfortran
 CC=gcc
 CXX=g++
 
-FFLAGS = -m64 -static -O2 -fno-second-underscore -fexceptions
-CFLAGS = -m64 -static -O2 -I../lib -DUSE_SAFELIB -fexceptions
-LDFLAGS = -m64 -static -L../lib  -L/usr/lib32   -lsafe -ltcl8.4 -fexceptions -lm -lc -lstdc++   -lRicVolume -lNemaVolume -lfslio -lniftiio -lnifticdf -lznz -lz -lplinkio -ldl
-CPPFLAGS = -m64 -static -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DLINUX64 
-CXXFLAGS = -O2 -std=c++11
+FFLAGS = -m64 -O2 -fno-second-underscore -fexceptions
+CFLAGS = -m64 -std=c99  -O2 -I../lib -DUSE_SAFELIB -fexceptions
+LDFLAGS = -m64 -static  -L../lib  -L/usr/lib32   -lsafe -ltclstub8.4 -fexceptions  -pthread -lm  -lstdc++ -lblas  -lRicVolume -lNemaVolume  -lznz -lz -lplinkio -ldl  -lhdf5   -ldl -ltcl8.4  -llapack -fopenmp  -Wl,--start-group ${MKLROOT}/mkl/lib/intel64_lin/libmkl_intel_lp64.a ${MKLROOT}/mkl/lib/intel64_lin/libmkl_intel_thread.a ${MKLROOT}/mkl/lib/intel64_lin/libmkl_core.a -Wl,--end-group /usr/local/intel/lib/intel64_lin/libiomp5.a -lpthread -lm -ldl
+CPPFLAGS = -m64  -I../lib -I../include -DUSE_SAFELIB -fexceptions -DTR1 -DLINUX64 -DEIGEN_USE_MKL_ALL -DEIGEN_NO_DEBUG 
+CXXFLAGS =  -O2   -std=c++11  -fopenmp  -I${MKLROOT}/mkl/include -fexceptions
 
 # End of system specific definitions
 
@@ -105,8 +105,14 @@ ccsearch.o \
 create_fake_pedigree.o \
 split_pheno_file.o \
 plink_converter.o \
+cplink_converter.o \
 reorder_phenotype.o \
-pedifromsnps.o
+pedifromsnps.o \
+cpedifromsnps.o \
+fphi.o \
+connectivity_fphi.o \
+gwa.o \
+parse_fphi_data.o
 
 #
 # Fortran objects needed by fisher

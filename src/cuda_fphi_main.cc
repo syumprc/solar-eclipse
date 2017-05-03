@@ -1,100 +1,38 @@
-#include<cmath>
-#include<stdio.h>
-#include<vector>
-#include<algorithm>
-#include<sstream>
-#include<fstream>
-#include<iostream>
-#include<string>
-#include <time.h>
-#include<random>
+#include <cmath>
+#include <stdio.h>
+#include <vector>
+#include <algorithm>
+#include <sstream>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <random>
 #include <cstdlib>
-#include <unistd.h>
-#include <fcntl.h>
+#include <iterator>
 #include "solar.h"
+#include <hdf5.h>
+#include <chrono>
+#include <Eigen/Dense>
 using namespace std;
-static bool return_isspace (char  x){
-	if(std::isspace(x)){
+
+int generate_gpu_fphi_matrices(Tcl_Interp * interp, float ** trait_matrix, float ** cov_matrix, float ** aux, float ** eigenvectors,\
+				vector<string> trait_names, int & n_subjects, int & n_covs);
+extern int load_trait_matrix(Tcl_Interp * interp, Eigen::MatrixXd & Y, std::string  headers[], int dim);
+static inline bool return_isspace (char  x){
+	if(std::isspace(x))
 		return true;
-	}
-	return false;
-}
-
-
-
-
-static std::vector<float> parse_line(std::string currentLine){
-
-	currentLine.erase(std::remove_if(currentLine.begin(), currentLine.end(), return_isspace), currentLine.end());
-
-
-
-	std::vector<float> output_vector;
-	std::string current_str;
-	char current_letter;
-
-	for(std::string::iterator it = currentLine.begin(); it != currentLine.end(); it++){
-		current_letter = *it;
-		if(current_letter == ','){
-			output_vector.push_back(std::strtod(current_str.c_str(), NULL));
-			current_str.clear();
-		}else{
-			current_str += current_letter;
-		}
-	}
-	output_vector.push_back(std::strtod(current_str.c_str(), NULL));
-
-
-	return output_vector;
+    else
+	   return false;
 
 }
-
-
-
-static float * csvread_float(const char * filename, size_t &rows,
-	    size_t &columns) {
-
-
-	std::ifstream inputData(filename);
-;
-	if(inputData.is_open() == false){
-		std::cerr << "Error in opening file: " << filename << "\n";
-		return NULL;
-	}
-	std::string Line;
-
-	std::vector< std::vector<float> > data;
-
-	while (std::getline(inputData, Line)) {
-
-		data.push_back(parse_line(Line));
-
-	}
-
-	rows = data.size();
-
-	columns = data[0].size();
-
-	inputData.close();
-
-	float * data_out = new float [rows*columns];
-
-
-	size_t colIdx = 0;
-	size_t rowIdx = 0;
-	for(std::vector< std::vector<float> >::iterator iter = data.begin(); iter != data.end() ; iter++, rowIdx++){
-		colIdx = 0;
-		for(std::vector<float>::iterator current_value = iter->begin() ; current_value != iter->end(); current_value++, colIdx++){
-			data_out[colIdx*rows + rowIdx] = *current_value;
-		}
-	}
-
-
-	return data_out;
-
+static unsigned int * create_permutation_indices(int n_subjects, int n_permutations){
+	unsigned int * permutation_indices = new unsigned int[n_subjects*n_permutations];
+	for(int permutation = 0; permutation < n_permutations ; permutation++){
+		iota (permutation_indices + permutation*n_subjects, permutation_indices + permutation*n_subjects + n_subjects, 0);
+		random_shuffle (permutation_indices+ permutation*n_subjects, permutation_indices + permutation*n_subjects + n_subjects);	
+	}		
+	return permutation_indices;	
 }
-
-
 
 static unsigned int * create_permutation_matrix(unsigned int n_subjects, unsigned int n_permutations) {
 
@@ -102,15 +40,13 @@ static unsigned int * create_permutation_matrix(unsigned int n_subjects, unsigne
 
 
   unsigned int * pmatrix = new unsigned int[n_subjects * n_permutations];
-  srand(0);
+
 	for(unsigned int j = 0 ; j < n_permutations; j++){
 
 
-		std::vector<unsigned int> randNums;
+		std::vector<unsigned int> randNums(n_subjects);
 
-		for (int r = 0; r < n_subjects; r++) {
-			randNums.push_back(r);
-		}
+		std::iota (randNums.begin(), randNums.end(), 0);
 		std::random_device rd;
 		std::mt19937 mt(rd());
 
@@ -153,10 +89,10 @@ static void write_connectivity_matrix(string file_out_name, string header_filena
 		header_list.push_back(current_label);
 	}
 	header_in.close();
-	string pval_name = "pvalue_connectivity_matrix_" + file_out_name;
-	string h2r_name = "h2r_connectivity_matrix_" + file_out_name;
+	string pval_name = ".pvalue_connectivity_matrix_" + file_out_name;
+	string h2r_name = ".h2r_connectivity_matrix_" + file_out_name;
 
-	string indicator_name = "indicator_connectivity_matrix_" + file_out_name;
+	string indicator_name = ".indicator_connectivity_matrix_" + file_out_name;
 
 	ofstream h2r_conn_out (h2r_name.c_str());
 	h2r_conn_out << ",";
@@ -248,7 +184,7 @@ static void write_column_line(string output_filename, string header_filename, si
 
 }
 
-static void get_headers(string header_filename, string headers [], int node_number, size_t qsub_shared_batch_size, size_t qsub_batch_size){
+static vector<string>  get_headers(string header_filename){
 	vector<string> header_list;
 	string header;
 	ifstream header_in(header_filename.c_str());
@@ -258,11 +194,7 @@ static void get_headers(string header_filename, string headers [], int node_numb
 
 	header_in.close();
 
-	for(vector<string>::iterator it = header_list.begin() +  node_number * qsub_shared_batch_size ;
-			it != header_list.begin() +  node_number * qsub_shared_batch_size + qsub_batch_size; it++){
-		size_t idx = distance(header_list.begin() + node_number*qsub_shared_batch_size, it );
-		headers[idx] = *it;
-	}
+	return header_list;
 
 }
 static void write_row_data(string output_file, string headers[] ,  float * data [], size_t n_rows, size_t n_voxels){
@@ -290,7 +222,7 @@ static void write_row_data(string output_file, string headers[] ,  float * data 
 
 }
 
-static void write_to_file(std::string file_name, std::string header_file, float * h2, float * indicator, float * pval, bool get_pvalue, size_t n_voxels){
+static void write_to_file(std::string file_name, std::string header_file, float * h2, float * indicator, float * SE, float * pval, bool get_pvalue, size_t n_voxels){
 
   std::ifstream file_in(header_file.c_str());
   std::vector< std::string > lines;
@@ -305,9 +237,9 @@ static void write_to_file(std::string file_name, std::string header_file, float 
 
 			  std::cout << "Proceeding anyway with trait number " << voxel + 1 << " out of " << n_voxels << " traits.\n";
 
-			  line = ',' +  convert_float_to_string(indicator[voxel]) + ',' + convert_float_to_string(h2[voxel]);
+			  line = ',' +  to_string(indicator[voxel]) + ',' + to_string(h2[voxel]) + ',' + to_string(SE[voxel]);
 			  if(get_pvalue){
-				  line +=  ',' + convert_float_to_string(pval[voxel]) + '\n';
+				  line +=  ',' + to_string(pval[voxel]) + '\n';
 			  }else{
 				  line += '\n';
 			  }
@@ -317,9 +249,9 @@ static void write_to_file(std::string file_name, std::string header_file, float 
 			  file_in >> line;
 
 
-		  	  line += ',' +  convert_float_to_string(indicator[voxel]) + ',' + convert_float_to_string(h2[voxel]);
+		  	  line += ',' +  to_string(indicator[voxel]) + ',' + to_string(h2[voxel]) + ',' + to_string(SE[voxel]);
 		  	  if(get_pvalue){
-		  		  line +=  ',' + convert_float_to_string(pval[voxel]) + '\n';
+		  		  line +=  ',' + to_string(pval[voxel]) + '\n';
 		  	  }else{
 		  		  line += '\n';
 		  	  }
@@ -335,9 +267,9 @@ static void write_to_file(std::string file_name, std::string header_file, float 
 	  for(size_t voxel = 0; voxel < n_voxels; voxel++){
 		  std::string line;
 		  line = "N/A,";
-		  line +=  convert_float_to_string(indicator[voxel]) + ',' + convert_float_to_string(h2[voxel]);
+		  line +=  to_string(indicator[voxel]) + ',' + to_string(h2[voxel]);
 		  if(get_pvalue){
-			  line +=  ',' + convert_float_to_string(pval[voxel]) + '\n';
+			  line +=  ',' + to_string(pval[voxel]) + '\n';
 		  }else{
 			  line += '\n';
 		  }
@@ -346,9 +278,9 @@ static void write_to_file(std::string file_name, std::string header_file, float 
   }
 
   file_in.close();
-  file_name = file_name + "_results.csv";
+  file_name = file_name + ".results.csv";
   std::ofstream file_out(file_name.c_str());
-  file_out << "Trait,Indicator,H2r";
+  file_out << "Trait,Indicator,H2r,SE";
   if(get_pvalue)
 	  file_out << ",pvalue\n";
   else
@@ -363,101 +295,66 @@ static void write_to_file(std::string file_name, std::string header_file, float 
   file_out.close();
 
 }
+static void convert_matrix_to_pointer(float * ptr, Eigen::MatrixXd & matrix){
+	
+	for(int col = 0; col < matrix.cols(); col++) for(int row = 0; row < matrix.rows() ;row++) ptr[col*matrix.rows() + row] = matrix(row, col);
+	
+}
+	
 
+	
+	
+	
+	
+typedef struct{
+	hid_t hdf5_file_out;
+
+	hid_t matrix_dataset;
+
+	hid_t matrix_filespace;
+}hdf5_struct;
 extern "C" std::vector<int> select_devices();
-extern "C" int call_cudafphi(float * h2, float * indicator, float * pvals, float * conn_h2, float * conn_indicator,
-		 float * conn_pval, float * h_y,  const float * h_Z, const float * h_cov,
-            const float * h_evectors,const unsigned int * h_pmatrix, bool covariates, bool get_pval, bool get_connectivity,
-            size_t n_voxels, size_t n_subjects, size_t n_permutations, size_t n_covariates, std::vector<int> selected_devices);
-
-extern "C" int call_cudafphi_qsub(float * conn_h2, float * conn_indicator ,
-		 float * conn_pval , float * h_y,  const float * h_Z,  float * h_cov,
-            const float * h_evectors,const unsigned int * h_pmatrix, bool covariates, bool get_pval, bool get_connectivity, int node_number,
-            size_t n_voxels, size_t n_subjects, size_t n_permutations, size_t qsub_batch_size, size_t qsub_shared_batch_size,
-            size_t n_covariates, std::vector<int> selected_devices);
 extern "C" std::vector<int> select_all_devices();
+extern "C" int call_cudafphi(float * h2, float * indicator, float * SE, float * pvals, float * h_y,  const float * h_Z,  float * h_cov,
+             const float * h_evectors, unsigned int * h_pmatrix, bool covariates, bool get_pval,
+             size_t n_voxels, size_t n_subjects, size_t n_permutations, size_t n_covariates, std::vector<int> selected_devices);
+
+extern "C" int call_cudafphi_connectivity(float * conn_h2, float * conn_indicator, float * conn_SE,
+		 float * conn_pval, float * h_y,  const float * h_Z,  float * h_cov,
+            const float * h_evectors,const unsigned int * h_pmatrix, bool covariates, bool get_pval, hdf5_struct * hdf5_data_h2, hdf5_struct * hdf5_data_indicator,
+            hdf5_struct * hdf5_data_SE, size_t n_voxels, size_t n_subjects, size_t n_permutations, size_t n_covariates, std::vector<int> selected_devices);
 
 
-extern void write_file(const char * out_filename, string labels [], float **  data , size_t dim);
-int write_to_hdf5_qsub(const char * out_filename, float * data, size_t qsub_batch_size, size_t qsub_shared_batch_size, size_t node_number, size_t dim);
-
-void write_data_to_hdf5(const char * out_filename, string  labels [], float *  buffer , size_t dim);
-
-int write_to_hdf5_qsub(string out_base_name,  float * h2r , float * indicator , float * pvals ,size_t qsub_batch_size, size_t qsub_shared_batch_size, size_t node_number, size_t n_voxels, bool use_pval){
-	string h2r_filename = out_base_name + "_h2r_connectivity_matrix.h5";
-	string indicator_filename = out_base_name + "_indicator_connectivity_matrix.h5";
-
-	int error;
-
-	error = write_to_hdf5_qsub(h2r_filename.c_str(), h2r,  qsub_batch_size,  qsub_shared_batch_size,  node_number,  n_voxels);
-
-	if(error == 0)
-		return error;
-
-	error = write_to_hdf5_qsub(indicator_filename.c_str(), indicator,   qsub_batch_size,  qsub_shared_batch_size,  node_number, n_voxels);
-	if(error == 0)
-		return error;
-
-	if(use_pval){
-		string pval_filename = out_base_name + "_pvalues_connectivity_matrix.h5";
-		error = write_to_hdf5_qsub(pval_filename.c_str(),pvals,   qsub_batch_size,  qsub_shared_batch_size,  node_number,  n_voxels);
-		if(error == 0)
-			return error;
-	}
 
 
-	return 1;
+void close_hdf5_ids(hdf5_struct * hdf5_data);
 
+void initialize_hdf5_file_cuda_fphi(std::string headers [], const char * filename, hdf5_struct * hdf5_data, size_t row_begin, size_t row_end,
+										size_t col_begin, size_t col_end);
+
+void print_help(Tcl_Interp * interp){
+	Solar_Eval(interp, "help gpu_fphi");	
 }
 
-
-
-
-
-
-
-
-
-
-void print_help(){
-	printf("cuda_fphi calculates the heritability and indicator values of a set of traits that share an auxiliary and eigenvector matrix.\n");
-	printf("Optionally the pvalue can be calculated given a number of permutations and covariates can be included given a hat matrix.\n");
-	printf("Where hat = I - X * (XT * X)^-1 * XT\n");
-	printf("cuda_fphi -Y <trait matrix file name>  -aux <auxiliary matrix filename> -eigen <eigenvector matrix (non-transposed) filename>  -o <output file name>  -header <trait header file name> optional args: <-conn connectivity matrix switch> <-all switch> -np <n_permutations> -cov <covariate matrix file name>\n");
-	printf("To combine cuda_fphi and qsub simply add -qsub <job id> <total jobs>\n");
-	printf("An error log called 'cuda_fphi.log' will can create with the --debug option\n");
-}
-
-extern "C" int RuncudafphiCmd (ClientData clientData, Tcl_Interp *interp, 
-					int argc, const char *argv[]){
+extern "C" int gpufphiCmd (ClientData clientData, Tcl_Interp *interp,
+		int argc, const char *argv[]){
 
 	bool select_device = true;
-	bool use_qsub = false;
-	close(STDERR_FILENO);
-	int error_file;
 
-	time_t rawtime;
-	struct tm * timeinfo;
-	bool debug = false;
-	time ( &rawtime );
-	timeinfo = localtime ( &rawtime );
+
 
 	for (int index = 1 ; index < argc ; index++){
 		string current_arg(argv[index]);
 		string upper_arg = current_arg;
 		transform(upper_arg.begin(), upper_arg.end(),upper_arg.begin(), ::toupper);
 		if((upper_arg == "--HELP") || (upper_arg == "--H") || (upper_arg == "-HELP") || (upper_arg == "-H")){
-			print_help();
+			print_help(interp);
 			return TCL_OK;
 		}
 	}
-
 	std::vector<int> selected_devices;
 	vector<string> arg_list;
 	bool get_connectivity = false;
-
-	size_t node_number;
-	size_t total_nodes;
 
 	for(int index = 1; index < argc; index++){
 		arg_list.push_back(string(argv[index]));
@@ -467,7 +364,6 @@ extern "C" int RuncudafphiCmd (ClientData clientData, Tcl_Interp *interp,
 		string upper_arg = current_arg;
 		transform(upper_arg.begin(), upper_arg.end(),upper_arg.begin(), ::toupper);
 		if((upper_arg == "--ALL") || (upper_arg == "--A") || (upper_arg == "-ALL") || (upper_arg == "-A")){
-			selected_devices = select_all_devices();
 			select_device = false;
 			it = arg_list.erase(it);
 			it--;
@@ -475,37 +371,12 @@ extern "C" int RuncudafphiCmd (ClientData clientData, Tcl_Interp *interp,
 			get_connectivity = true;
 			it = arg_list.erase(it);
 			it--;
-		}else if((upper_arg == "--QSUB" || upper_arg == "-QSUB") &&  (it + 2 != arg_list.end())){
-			use_qsub = true;
-			
-			int arg_index =  distance(arg_list.begin(), it);
-			node_number = strtol(arg_list[arg_index + 1].c_str(), NULL, 10);
-			total_nodes = strtol(arg_list[arg_index + 2].c_str(), NULL, 10);
-			it = arg_list.erase(it, it + 3);
-			it--;
-		}else if((upper_arg == "--DEBUG" || upper_arg == "-DEBUG" || upper_arg == "-D" || upper_arg == "--D") &&  (it + 2 != arg_list.end())){
-			it = arg_list.erase(it);
-			debug = true;
-			error_file = open( "cuda_fphi.log", O_CREAT | O_WRONLY, 0644 );
-
-			dup2( error_file, STDERR_FILENO);
-
-			fprintf(stderr, "CUDA FPHI Error Log\n");
-			fprintf (stderr, "Current local time and date: %s", asctime (timeinfo) );
-			it--;
 		}
+			
 	}
 
 
-	if(select_device)
-		selected_devices = select_devices();
 
-
-
-	string Y_file;
-	string evectors_file;
-	string aux_file;
-	string cov_file;
 	unsigned int n_permutations = 0;
 	string file_out;
 	string header_filename;
@@ -513,329 +384,185 @@ extern "C" int RuncudafphiCmd (ClientData clientData, Tcl_Interp *interp,
 		string current_arg = arg_list[it];
 		string upper_arg = current_arg;
 		transform(upper_arg.begin(), upper_arg.end(),upper_arg.begin(), ::toupper);
-		if((upper_arg == "--Y"  || upper_arg == "-Y") && (it + 1 < arg_list.size())){
-			Y_file = arg_list[it + 1];
-		}else if((upper_arg == "--AUX"  || upper_arg == "-AUX") && (it + 1 < arg_list.size())){
-			aux_file  = arg_list[it + 1];
-		}else if((upper_arg == "--EIGEN"  || upper_arg == "-EIGEN" || upper_arg == "-E" || upper_arg == "--E") && (it + 1 < arg_list.size())){
-			evectors_file = arg_list[it + 1];
-		}else if((upper_arg == "--O"  || upper_arg == "-O" || upper_arg == "--OUT" || upper_arg == "-OUT" || upper_arg == "--OUTPUT" || upper_arg == "-OUTPUT") && (it + 1 < arg_list.size())){
-			file_out = arg_list[it + 1];
-		}else if((upper_arg == "--HEAD"  || upper_arg == "-HEAD" || upper_arg == "--HEADER" || upper_arg == "-HEADER") && (it + 1 < arg_list.size())){
-			header_filename = arg_list[it + 1];
-		}else if((upper_arg == "--NP"  || upper_arg == "-NP") && (it + 1 < arg_list.size())){
+		if((upper_arg == "--NP"  || upper_arg == "-NP") && (it + 1 < arg_list.size())){
 			n_permutations = strtol(arg_list[it + 1].c_str(), NULL, 10);
  			if(n_permutations <= 0){
  				cout << "Error in selecting the number of permutations.\n Must be greater than zero.\n";
- 				return TCL_ERROR;
+ 				return EXIT_FAILURE;
  			}
-		}else if((upper_arg == "--COV"  || upper_arg == "-COV" || upper_arg == "-COVARIATES" || upper_arg == "--COVARIATES") && (it + 1 < arg_list.size())){
-			cov_file = arg_list[it + 1];
+		}else if ((upper_arg == "--HEADER" || upper_arg == "-HEAD" || upper_arg == "--HEAD" || upper_arg == "-HEADER") &&
+		    it + 1 < arg_list.size()){
+			
+			header_filename = arg_list[it + 1];	
+			
+		}else if (upper_arg == "--OUT" || upper_arg == "-OUT"  \
+		|| upper_arg == "--O" || upper_arg == "-O" || upper_arg == "-OUTPUT" || upper_arg == "--OUTPUT"){
+			
+			file_out = arg_list[it + 1];	
+			
 		}else{
 
 			cout << "Error in argument number " << it << ".\n";
 			cout << "Argument: " << arg_list[it] << "\n";
-			print_help();
-			return TCL_ERROR;
+			print_help(interp);
+			return EXIT_FAILURE;
 
 		}
 
 
 	}
-
-
-	if(aux_file == "" || Y_file == "" || evectors_file == "" || file_out == "" || header_filename == ""){
-
-		cout << "Missing a mandatory argument.\n";
-		print_help();
+	
+	if(select_device)
+		selected_devices = select_devices();
+	else
+		selected_devices = select_all_devices();
+	vector<string> header_list = get_headers(header_filename);
+	if(header_list.size() == 0) {
+		cout << "No traits were listed in the header.\n";
 		return TCL_ERROR;
 	}
-
-
+	string headers[header_list.size()];
+	for(vector<string>::iterator it = header_list.begin();
+			it != header_list.end(); it++){
+		size_t idx = distance(header_list.begin(), it );
+		headers[idx] = *it;
+	}
+	
+	if(header_filename == "" || file_out == ""){
+		cout << "Missing a mandatory argument.\n";
+		print_help(interp);
+		return TCL_ERROR;
+	}
 	if(selected_devices.size() == 0){
 		printf("No usable devices were selected.\n");
 		return TCL_ERROR;
 	}
-
-
-
-	size_t  n_subjects;
-	size_t  n_voxels;
-	float * h_y;
-
-	try{
-		h_y = csvread_float(Y_file.c_str(), n_subjects, n_voxels);
-	}catch(std::bad_alloc&){
-		std::cout << "Failed to allocate the memory needed for the trait matrix.\n";
-		return TCL_ERROR;
-	}catch(...){
-		std::cout << "Unknown failure in trying to load the trait matrix.\n";
-		return TCL_ERROR;
+	int  n_subjects;
+	int  n_voxels = header_list.size();
+	int n_covariates;
+	Eigen::MatrixXd Y;
+	//load_trait_matrix(interp, Y, headers, header_list.size());
+	//Solar_Eval(interp, string("trait " + headers[0]).c_str()); 
+	
+	float * h_y, * cov, * aux, * evectors;
+  std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+	
+	int success = generate_gpu_fphi_matrices(interp, &h_y, &cov, &aux, &evectors,\
+				header_list,  n_subjects,  n_covariates);
+    if(success == TCL_ERROR) return success;
+    bool covariates = false;
+    if(n_covariates != 0){
+		covariates = true;
+		n_covariates++;
 	}
+	
 
-
- 	if(h_y == NULL){
- 		return TCL_ERROR;
- 	}
-
- 	size_t n_subjects_1;
- 	size_t n_subjects_2;
- 	float * evectors;
-
-
-	try{
-
-		evectors = csvread_float(evectors_file.c_str(), n_subjects_1, n_subjects_2);
-
-	}catch(std::bad_alloc&){
-		std::cout << "Failed to allocate the memory needed for the eigenvector matrix.\n";
-		delete [] h_y;
-		return TCL_ERROR;
-	}catch(...){
-		std::cout << "Unknown failure in trying to load the eigenvector matrix.\n";
-		delete [] h_y;
-		return TCL_ERROR;
-	}
-
- 	if(evectors == NULL){
- 		delete [] h_y;
- 		return TCL_ERROR;
- 	}
-
- 	if(n_subjects_1 != n_subjects_2){
- 		printf("Row size and column size are not equal for evector matrix.\n There are %i rows and %i columns.\n",
-			  n_subjects_1, n_subjects_2);
- 		delete [] h_y;
- 		delete [] evectors;
- 		return TCL_ERROR;
- 	}
-
- 	if(n_subjects_1 != n_subjects){
- 		printf("Rows of trait matrix and eigenvector matrix are not equal.\n %i rows in the trait matrix and %i rows and columns in the eigenvector matrix.\n",
-			  n_subjects, n_subjects_1);
- 		delete [] h_y;
- 		delete [] evectors;
- 		return TCL_ERROR;
- 	}
-
- 	size_t  dummy;
- 	float * cov;
- 	float *  aux;
-
-
-	try{
-		aux = csvread_float(aux_file.c_str(), n_subjects_1, dummy);
-	}catch(std::bad_alloc&){
-		std::cout << "Failed to allocate the memory needed for the auxiliary matrix.\n";
-		delete [] evectors;
-		delete [] h_y;
-		return TCL_ERROR;
-	}catch(...){
-		std::cout << "Unknown failure in trying to load the auxiliary matrix.\n";
-		delete [] evectors;
-		delete [] h_y;
-		return TCL_ERROR;
-	}
-
-
- 	if(aux == NULL){
- 		delete [] evectors;
- 		delete [] h_y;
- 		return TCL_ERROR;
- 	}
-
- 	if(dummy != 2){
- 		printf("Auxiliary matrix requires only two columns.  %i columns were detected.\n", dummy);
- 		delete [] aux;
- 		delete [] evectors;
- 		delete [] h_y;
- 		return TCL_ERROR;
- 	}
-
- 	if(n_subjects_1 != n_subjects){
- 		printf("Auxiliary matrix subject number is %i while the trait matrix subject number is %i.\n",n_subjects_1, n_subjects);
- 		delete [] aux;
- 		delete [] evectors;
- 		delete [] h_y;
- 		return TCL_ERROR;
- 	}
-
-
- 	bool covariates = false;
+	
  	bool get_pval = false;
  	unsigned int * pmatrix;
-
- 	size_t  n_covariates;
-
  	if(n_permutations > 0){
  		try{
- 			pmatrix = create_permutation_matrix(n_subjects, n_permutations);
+ 			pmatrix = create_permutation_indices(n_subjects, n_permutations);
  			get_pval = true;
 		}catch(std::bad_alloc&){
 			std::cout << "Could not allocate memory for permutation matrix.\n";
-	 		delete [] aux;
-	 		delete [] evectors;
-	 		delete [] h_y;
+			delete [] h_y;
+			delete [] evectors;
+			delete [] aux;
+			if(covariates)
+				delete [] cov;
 			return TCL_ERROR;
 		}catch(...){
 			std::cout << "Unknown failure in trying to create permutation matrix.\n";
-	 		delete [] aux;
-	 		delete [] evectors;
-	 		delete [] h_y;
+			delete [] h_y;
+			delete [] evectors;
+			delete [] aux;			
+			if(covariates)
+				delete [] cov;
 			return TCL_ERROR;
 		}
 
  	}
-
- 	if(cov_file != ""){
- 		try{
- 			cov = csvread_float(cov_file.c_str(), n_subjects_1, n_covariates);
- 			covariates = true;
-		}catch(std::bad_alloc&){
-			std::cout << "Could not allocate memory for covariate matrix matrix.\n";
-	 		delete [] aux;
-	 		delete [] evectors;
-	 		delete [] h_y;
-	 		if(get_pval)
-	 			delete [] pmatrix;
-			return TCL_ERROR;
-		}catch(...){
-			std::cout << "Unknown failure in trying to load covariates matrix.\n";
-	 		delete [] aux;
-	 		delete [] evectors;
-	 		delete [] h_y;
-	 		if(get_pval)
-	 			delete [] pmatrix;
-			return TCL_ERROR;
-		}
-		if(cov == NULL){
-			delete [] aux;
-			delete [] evectors;
-			delete [] h_y;
-	 		if(get_pval)
-	 			delete [] pmatrix;
-			return TCL_ERROR;
-		}
-
-
-		if(n_subjects_1 != n_subjects){
-			printf("Rows of trait matrix are not equal to rows of covariate matrix.\n  The number of rows in the trait matrix is %i and the number of rows in the covariate matrix is %i.\n",
-					n_subjects, n_subjects_1);
-			delete [] aux;
-			delete [] evectors;
-			delete [] h_y;
-			delete [] cov;
-	 		if(get_pval)
-	 			delete [] pmatrix;
-			return TCL_ERROR;
-		}
-
-
-
- 	}
-
-
-
-	size_t qsub_batch_size;
-
-
-	if(use_qsub){
-		qsub_batch_size = n_voxels/total_nodes;
-
-		if(node_number + 1 == total_nodes  && n_voxels % total_nodes != 0){
-			qsub_batch_size = n_voxels % total_nodes;
-		}
-
-	}else{
-		qsub_batch_size = n_voxels;
-	}
-
-
-
-
+	Y.resize(0, 0);
  	float * indicator;
  	float * pvals;
  	float * h2;
- 	float  * conn_h2;
- 	float * conn_indicator;
- 	float * conn_pvalues;
+	float * SE;
+ 	try{
+ 	 	 indicator = new float[n_voxels];
+		 if(get_pval)
+			pvals = new float[n_voxels];
+ 	 	 h2 = new float[n_voxels];
+ 	 	 SE = new float[n_voxels];
+ 	}catch(std::bad_alloc&){
+ 		std::cout << "Error could not allocate memory for output arrays.\n";
+	 	if(get_pval)
+	 		delete [] pmatrix;
+	 	delete [] h_y;
+		delete [] evectors;
+		delete [] aux;	
+			
+		if(covariates)
+			delete [] cov;		 			
+	 			
+		return TCL_ERROR;
+ 	}
+ 
+ 	
+ 	if(!get_connectivity){
+ 		call_cudafphi(h2, indicator, SE, pvals, h_y,  aux,   cov,
+ 		              evectors, pmatrix,  covariates,  get_pval,
+ 		              n_voxels,  n_subjects,  n_permutations,  n_covariates,  selected_devices);
 
+ 		write_to_file(file_out,header_filename, h2, indicator,SE, pvals, get_pval, n_voxels);
+		      
+	}else{
+ 		hdf5_struct * hdf5_data_h2 = new hdf5_struct;
+ 		hdf5_struct * hdf5_data_indicator = new hdf5_struct;
+ 		hdf5_struct * hdf5_data_SE = new hdf5_struct;
+ 		hdf5_struct * hdf5_data_pvalues;
+ 		initialize_hdf5_file_cuda_fphi(header_list.data(), string(file_out + ".h2r.connectivity_matrix.h5").c_str(), hdf5_data_h2, 0, n_voxels,
+ 													0, n_voxels);
+ 		initialize_hdf5_file_cuda_fphi(header_list.data(), string(file_out + ".indicator.connectivity_matrix.h5").c_str(), hdf5_data_indicator, 0, n_voxels,
+ 													0, n_voxels);
+ 													
+ 		initialize_hdf5_file_cuda_fphi(header_list.data(), string(file_out + ".SE.connectivity_matrix.h5").c_str(), hdf5_data_SE, 0, n_voxels,
+ 													0, n_voxels);
+		if(get_pval){	
+			hdf5_data_pvalues = new hdf5_struct;												
+			initialize_hdf5_file_cuda_fphi(header_list.data(), string(file_out + ".pvalues.connectivity_matrix.h5").c_str(), hdf5_data_pvalues, 0, n_voxels,
+ 													0, n_voxels);																						
 
- 	if(get_connectivity){
- 		conn_h2 = new float[qsub_batch_size*n_voxels];
- 		conn_indicator = new float[qsub_batch_size*n_voxels];
+		}
+
+ 		call_cudafphi_connectivity(h2, indicator, SE, pvals,  h_y, aux, cov, evectors, pmatrix, covariates,
+ 				get_pval,  hdf5_data_h2, hdf5_data_indicator, hdf5_data_SE, n_voxels, n_subjects, n_permutations, n_covariates, selected_devices);
+ 		close_hdf5_ids(hdf5_data_h2);
+ 		close_hdf5_ids(hdf5_data_indicator);
+ 		close_hdf5_ids(hdf5_data_SE);
  		if(get_pval){
- 			conn_pvalues = new float[n_voxels*qsub_batch_size];
- 		}
- 	}else{
- 	 	indicator = new float[n_voxels];
- 	 	pvals = new float[n_voxels];
- 	 	h2 = new float[n_voxels];
- 	}
-
- 	int error;
- 	if(use_qsub){
-
-
-
- 		error = call_cudafphi_qsub( conn_h2, conn_indicator,
- 				  conn_pvalues,  h_y, aux,  cov,
- 		            evectors, pmatrix,  covariates,  get_pval,  get_connectivity,  node_number,
- 		             n_voxels,  n_subjects,  n_permutations,  qsub_batch_size,  (n_voxels/total_nodes),
- 		             n_covariates,  selected_devices);
-
-
-
- 		error = write_to_hdf5_qsub(file_out, conn_h2, conn_indicator , conn_pvalues ,qsub_batch_size, n_voxels/total_nodes, node_number,  n_voxels,  get_pval);
-
-
-
-
-
- 	}else{
-
- 		error = call_cudafphi(h2, indicator, pvals, conn_h2, conn_indicator, conn_pvalues, h_y, aux, cov, evectors, pmatrix, covariates, get_pval, get_connectivity, n_voxels, n_subjects, n_permutations, n_covariates, selected_devices);
- 	 	if(get_connectivity){
- 	 		error = write_to_hdf5_qsub(file_out, conn_h2, conn_indicator , conn_pvalues ,qsub_batch_size, n_voxels, n_voxels,  n_voxels,  get_pval);
- 		}else{
- 	 	 	write_to_file(file_out,header_filename, h2, indicator, pvals, get_pval, n_voxels);
- 		}
- 	}
- 	delete [] aux;
- 	delete [] evectors;
- 	delete [] h_y;
- 	if(covariates)
- 		delete [] cov;
+			close_hdf5_ids(hdf5_data_pvalues);
+			delete hdf5_data_pvalues;
+		}
+		delete hdf5_data_h2;
+		delete hdf5_data_indicator;
+		delete hdf5_data_SE;
+	}
+	
+	delete [] h_y;
+	delete [] evectors;
+	delete [] aux;
+	if(covariates)
+		delete [] cov; 	
  	if(get_pval)
  		delete [] pmatrix;
 
-
-
-
- 	if(get_connectivity == false){
-
-
- 	 	delete [] h2;
- 	 	if(get_pval)
- 	 		delete [] pvals;
- 	 	delete [] indicator;
-
-
-
- 	}else{
- 		delete [] conn_h2;
- 		delete [] conn_indicator;
- 		if(get_pval){
- 			delete [] conn_pvalues;
- 		}
- 	}
- 	if(debug)
- 		close(error_file);
-
- 	if(error == 0)
- 		return TCL_ERROR;
-
-
+ 	delete [] h2;
+ 	delete [] SE;
+ 	if(get_pval)
+ 	 	delete [] pvals;
+ 	delete [] indicator;
+ 			
  	return TCL_OK;
 }
 

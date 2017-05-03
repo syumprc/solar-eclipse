@@ -118,7 +118,7 @@ static void reorder_phenotype(string pedindex_file_name, string phenotype_file_n
 	
 	ofstream header_out;
 	ofstream new_header;
-	string header_out_filename = "Y.mat." + output_file_name;
+	string header_out_filename =  output_file_name + ".mat.csv";
 	string new_header_out_filename = output_file_name + ".header";
 	if(is_header){
 		header_out.open(header_out_filename.c_str(), ofstream::out);

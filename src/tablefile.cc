@@ -108,7 +108,8 @@ public:
     PedsysFile (const char *fname) : TableFile () 
 	{user_setup=0; code_recs=0; _filename=Strdup(fname); _nominal_widths=0;}
     virtual ~PedsysFile ();
-
+    void setup_list(const char ** names, int n_names, const char ** errmsg){
+    return; }
     virtual int *widths (int *count, const char **errmsg);
     virtual int *nominal_widths (int *count, const char **errmsg);
     void start_setup (const char **errmsg);
@@ -146,6 +147,7 @@ public:
           freelist=0;freelistcnt=0;_types=0;}
     ~CommaDelimitedFile ();
     int *widths (int *count, const char **errmsg);
+    void setup_list(const char ** names, int n_names, const char ** errmsg);
     void start_setup (const char **errmsg);
     int setup (const char *name, const char **errmsg);
     char **get(const char **errmsg);
@@ -1137,7 +1139,53 @@ void CommaDelimitedFile::start_setup (const char **errmsg)
     user_field_count = 0;
     highest_user_index = -1;
 }
+void CommaDelimitedFile::setup_list(const char ** names, int n_names, const char ** errmsg)
+{
+    if (0 != (*errmsg = _errmsg)) return;
+    printf("setup_list\n");
+    int index_start = user_field_count - 1;
+    if(index_start == -1)
+        index_start = 0;
+    user_field_count += n_names;
+    user_indexes = (int *) Realloc (user_indexes,
+                                    user_field_count*sizeof(int));
+    user_array = (char **) Realloc (user_array,
+                                    (1+user_field_count)*sizeof(char*));
+    bool abort = false;
+    char **test_names = (short_names_switch) ? _short_names : _names;
+    #pragma omp parallel for
+    for(int n = 0 ; n < n_names; n++){
+        bool found = false;
+        #pragma omp flush(abort)
+        if(!abort){
+            for(int i = 0; i < field_count; i++){
+                if(!Strcmp (names[n], test_names[i])){
+                    found = true;
+                    user_indexes[index_start + n] = i;
+                    #pragma omp critical
+                    {
+                        if(i > highest_user_index){
+                            highest_user_index = i;
+                        }
+                    }
+                    break;
+                }
+            }
+            if(found == false){
+                abort = true;
+                #pragma omp flush(abort)
+                sprintf (error_message, "Name not found: %s", names[n]);
+                *errmsg = _errmsg = error_message;
+            }
+        }
 
+    }
+    if(abort){
+        user_field_count -= n_names;
+    }
+    
+    return;
+}
 int CommaDelimitedFile::setup (const char *name, const char **errmsg)
 {
     if (0 != (*errmsg = _errmsg)) return 0; 
@@ -1148,6 +1196,7 @@ int CommaDelimitedFile::setup (const char *name, const char **errmsg)
 
 	if (!Strcmp (name, test_names[i]))
 	{
+        
 	    user_field_count++;
 	    user_indexes = (int *) Realloc (user_indexes, 
 					    user_field_count*sizeof(int));

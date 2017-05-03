@@ -53207,12 +53207,113 @@ proc polyclass_normalize {args} {
 	
 	
 	
-}     
+} 
+# solar::connectivity_fphi --
+# Purpose: Creates a connectivity matrix using the fphi algorithm. 
+#
+# Usage: connectivity_fphi -header <header filename> -o <output base filename>
+#		[optional: -rows <begin> <end> -cols <begin> <end> -csv]
+#
+#   This function creates a connectivity matrix when a pedigree and phenotype are 
+#   loaded, a header file is provided, and an output basename is given. Optional 
+#   the subset of the entire matrix can be calculated instead by specifying which 
+#   rows and columns to include.  Note that begin is an inclusive index starting at
+#   0 while end is an exclusive index ending at the number of rows or columns. The 
+#   csv option writes output to csv instead of hdf5. 
+#-
+proc connectivity_fphi {args} {
+	
+	set row_list {0,0}
+	set col_list {0,0}
+	set header_filename ""
+	set output_base_filename ""
+	set csv_option {}
+	set badargs [read_arglist $args \
+             -header header_filename \
+		     -o output_base_filename \
+		     -rows row_list \
+		     -cols col_list \
+		     -csv {set csv_option "-csv"}]
+	if {header_filename == {}} {
+		error "No header filename was specified"
+	}
+	
+	if { [phenotype -files] == {} } {
+		error  "No phenotype is loaded"
+	}
+	
+	if {output_base_filename == {} } {
+		error "No output base filename was specified"
+	}
+	
+	set phenotype_file_name [phenotype -files]
+	
+	ped2csv pedindex.out pedindex.csv
+	
+	reorder_phenotype -ped pedindex.csv -pheno $phenotype_file_name -header $header_filename -out  "reordered_$phenotype_file_name"
+	
+	set trait_file [open $header_filename]
+	set trait_string [split [read $trait_file]]
+	close $trait_file
+	set trait_matrix {}
+	set covars [covar]
+	set list $trait_string
+	set trait_list $trait_string
+	
+	set keepgoing 0
+	set index 0
+	
+	while {$keepgoing == 0} {
+		catch {
+			
+			set first_trait [lindex $trait_list $index]
+			trait $first_trait
+			foreach var $covars {
+				cov $var
+			}
+			evdout -evectors -all
+			set evectors [load matrix "$first_trait/evectors.mat.csv"] 
+			incr keepgoing
+			
+		}
+		incr index
+		
+		if {$index == [expr [llength $trait_list] - 1] && $keepgoing == 0} {
+			error "Eigenvectors couldn't be created with data given"
+		}
+		
+	}
+	
+	if { $covars != {} } {
+		set X [evdinx]
+		
+		cconnectivity_fphi -Y [load matrix "reordered_$phenotype_file_name.mat.csv"]  -X $X -Z [evdinz] -evectors $evectors \
+		 -rows [lindex $row_list 0] [lindex $row_list 1] -cols [lindex $col_list 0] [lindex $col_list 1] $csv_option	
+		 
+	} else {
+		cconnectivity_fphi -Y [load matrix "reordered_$phenotype_file_name.mat.csv"] -Z [evdinz] -evectors $evectors \
+		 -rows [lindex $row_list 0] [lindex $row_list 1] -cols [lindex $col_list 0] [lindex $col_list 1] $csv_option
+	 }	
+	 
+}	
+	
+	
+	
+	    
+
+    
+# solar::pedifromsnps --
+# Purpose: Creates a pedigree matrix from a snp plink data set. 
+#
+# Usage: pedifromsnps -i <input base name of plink data> -o <output csv file name>
+#        [-header <header file name containing list of snps to include in calculation>]
+
+
 
 # solar::create_fake_pedigree --
-# "Purpose: This command creates a pedigree file given a phenotype file taken as input. 
+# Purpose: This command creates a pedigree file given a phenotype file taken as input. 
 #
-#  Usage: create_fake_pedigree <phenotype filename> [-o output pedigree filename
+# Usage: create_fake_pedigree <phenotype filename> [-o output pedigree filename
 #       <phenotype filename> Phenotype filename to be used to create pedigree
 #	[-o <output pedigree filename>] Option to name output pedigree filename
 

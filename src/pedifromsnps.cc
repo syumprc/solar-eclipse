@@ -1,15 +1,26 @@
-#include<plinkio.h>
-#include<string>
-#include<fstream>
-#include<stdio.h>
-#include<iostream>
-#include <algorithm>
-#include <vector>
-#include <iterator>
 #include "solar.h"
+#include <string>
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <plinkio.h>
 using namespace std;
-#define SQUARED(value) ((value)*(value))
+static vector<const char *> read_headers(string header_filename){
+	ifstream headers_in(header_filename.c_str());
 
+
+	vector<const char*> headers;
+
+	string header;
+
+
+	while(headers_in >> header) headers.push_back(header.c_str());
+
+
+	return headers;
+
+
+}
 
 static string to_lower(string input){
 
@@ -19,294 +30,15 @@ static string to_lower(string input){
 
   return output;
 }
-
-
-
-inline static long unsigned int decrease (long unsigned int i) { return --i; }
-
-static void create_relationship_matrix(pio_file_t * input_file, vector <vector <long double> > & GRM, size_t n_subjects , size_t n_snps){
-
-	snp_t * buffer = new snp_t[n_subjects];
-	// * int_buffer = new unsigned int[n_subjects];
-
-
-
-
-	 long unsigned  int * n_snps_matrix= new long unsigned int[n_subjects*n_subjects];
-
-	fill(n_snps_matrix, n_snps_matrix + n_subjects*n_subjects, n_snps);
-
-
-	pio_locus_t * locus;
-	pio_status_t status;
-
-
-	double freq;
-
-
-	 unsigned int homo_count;
-	 unsigned int heter_count;
-	 unsigned int subject_count;
-
-	size_t row, col, current_subject;
-
-
-
-
-	vector<unsigned char> vector_buffer(n_subjects);
-	for(size_t snp = 0 ; snp < n_snps; ++snp){
-
-
-
-		status = pio_next_row(input_file,buffer);
-		if(status != PIO_OK){
-			for(size_t row = 0 ; row < n_subjects ; ++row) \
-					for(size_t col = row;  col < n_subjects; ++col) n_snps_matrix[row*n_subjects + col]--;
-			continue;
-		}
-
-		locus = bim_get_locus(&input_file->bim_file, snp);
-		if(strcmp(locus->allele1, "0") == 0 || strcmp(locus->allele2, "0")== 0){
-			for(size_t row = 0 ; row < n_subjects ; ++row) \
-					for(size_t col = row;  col < n_subjects; ++col) n_snps_matrix[row*n_subjects + col]--;
-			continue;
-		}
-		freq = 0.0;
-
-
-		subject_count = n_subjects;
-		homo_count = 0;
-		heter_count = 0;
-
-
-		copy(buffer, buffer + n_subjects, vector_buffer.begin());
-
-
-
-
-
-		auto it_buffer = vector_buffer.begin();
-
-		for(size_t subject = 0 ; subject < n_subjects ; ++subject){
-
-			switch(*it_buffer++){
-			case 1:
-				heter_count++;
-				break;
-			case 2:
-				homo_count++;
-				break;
-			case 3:
-				subject_count--;
-
-				for(size_t col = subject; col < n_subjects ; ++col) n_snps_matrix[subject*n_subjects + col]--;
-
-				for(size_t row = 0; row < subject; ++row) n_snps_matrix[row*n_subjects + subject]--;
-
-
-
-
-				break;
-
-			}
-
-
-
-
-		}
-
-		freq = (double)(homo_count*2.0 + heter_count)/(double)(2.0*subject_count);
-
-
-
-		auto row_value = vector_buffer.begin();
-		for(size_t row = 0; row < n_subjects; ++row, ++row_value){
-			if(*row_value == 3) continue;
-			GRM[row][row] += SQUARED((*row_value - 2.0*freq))/(freq*2.0*(1.0 - freq));
-
-
-			auto col_value = vector_buffer.end() - 1;
-			double factor = *row_value - 2.0*freq;
-			for(size_t col = n_subjects - 1 ; col > row ; --col, --col_value) GRM[row][col] += factor*((*col_value != 3 ? *col_value : 2.0*freq)  - \
-							2.0*freq)/(freq*(1.0 - freq)*2.0);
-
-
-
-
-
-		}
-
-
-
-	}
-	delete [] buffer;
-
-
-	for(size_t row = 0 ; row < n_subjects ; ++row)\
-			for(size_t col = row;  col < n_subjects; ++col) GRM[row][col] /= (long double)n_snps_matrix[row*n_subjects + col];
-
-
-
-
-	delete [] n_snps_matrix;
-
-}
-
-static void create_relationship_matrix_with_header(pio_file_t * input_file, vector <vector <long double> > & GRM,
-		vector<string> header_list, size_t n_subjects , size_t n_snps){
-
-	snp_t * buffer = new snp_t[n_subjects];
-	// * int_buffer = new unsigned int[n_subjects];
-
-
-
-
-	 long unsigned  int * n_snps_matrix= new long unsigned int[n_subjects*n_subjects];
-
-	fill(n_snps_matrix, n_snps_matrix + n_subjects*n_subjects, n_snps);
-
-
-	pio_locus_t * locus;
-	pio_status_t status;
-
-
-	double freq;
-
-	 unsigned int homo_count;
-	 unsigned int heter_count;
-	 unsigned int subject_count;
-	size_t row, col, current_subject;
-
-
-
-
-	vector<unsigned char> vector_buffer(n_subjects);
-	for(size_t snp = 0 ; snp < n_snps; ++snp){
-
-
-
-		status = pio_next_row(input_file,buffer);
-		if(status != PIO_OK){
-			for(size_t row = 0 ; row < n_subjects ; ++row) \
-					for(size_t col = row;  col < n_subjects; ++col) n_snps_matrix[row*n_subjects + col]--;
-			continue;
-		}
-
-		locus = bim_get_locus(&input_file->bim_file, snp);
-		if(strcmp(locus->allele1, "0") == 0 || strcmp(locus->allele2, "0")== 0){
-			transform (n_snps_matrix, n_snps_matrix + n_subjects*n_subjects, n_snps_matrix, decrease);
-			continue;
-		}
-		freq = 0.0;
-
-		string header_name(locus->name);
-
-		if(find(header_list.begin(), header_list.end(), header_name) == header_list.end()){
-
-			for(size_t row = 0 ; row < n_subjects ; ++row) \
-					for(size_t col = row;  col < n_subjects; ++col) n_snps_matrix[row*n_subjects + col]--;
-			continue;
-		}
-
-
-		subject_count = n_subjects;
-		homo_count = 0;
-		heter_count = 0;
-
-
-		copy(buffer, buffer + n_subjects, vector_buffer.begin());
-
-
-
-
-
-		auto it_buffer = vector_buffer.begin();
-
-		for(size_t subject = 0 ; subject < n_subjects ; ++subject){
-
-			switch(*it_buffer++){
-			case 1:
-				heter_count++;
-				break;
-			case 2:
-				homo_count++;
-				break;
-			case 3:
-				subject_count--;
-
-				for(size_t col = subject; col < n_subjects ; ++col) n_snps_matrix[subject*n_subjects + col]--;
-
-				for(size_t row = 0; row < subject; ++row) n_snps_matrix[row*n_subjects + subject]--;
-
-
-
-
-				break;
-
-			}
-
-
-
-
-		}
-
-		freq = (double)(homo_count*2.0 + heter_count)/(double)(2.0*subject_count);
-
-
-
-		auto row_value = vector_buffer.begin();
-		for(size_t row = 0; row < n_subjects; ++row, ++row_value){
-			if(*row_value == 3) continue;
-			GRM[row][row] += SQUARED((*row_value - 2.0*freq))/(freq*2.0*(1.0 - freq));
-
-
-			auto col_value = vector_buffer.end() - 1;
-			double factor = *row_value - 2.0*freq;
-			for(size_t col = n_subjects - 1 ; col > row ; --col, --col_value) GRM[row][col] += factor*((*col_value != 3 ? *col_value : 2.0*freq)  - \
-							2.0*freq)/(freq*(1.0 - freq)*2.0);
-
-
-
-
-
-		}
-
-
-
-	}
-	delete [] buffer;
-
-
-	for(size_t row = 0 ; row < n_subjects ; ++row) \
-			for(size_t col = row;  col < n_subjects; ++col) GRM[row][col] /= (long double)n_snps_matrix[row*n_subjects + col];
-
-
-
-
-	delete [] n_snps_matrix;
-
-}
-
-static vector<string> read_headers(string header_filename){
-	ifstream headers_in(header_filename.c_str());
-
-
-	vector<string> headers;
-
-	string header;
-
-
-	while(headers_in >> header) headers.push_back(header);
-
-
-	return headers;
-
-
-}
-
-static void write_matrix_to_file(string output_filename, pio_file_t * input_file, vector< vector<long double> > GRM, size_t n_subjects){
-
-	ofstream output_file(output_filename.c_str());
+extern "C" void create_relationship_matrix(pio_file_t * input_file, const char * base_filename, double * GRM, \
+ int per_chromosome, size_t n_subjects , size_t n_snps);
+ 
+extern "C" void create_relationship_matrix_with_header(pio_file_t * input_file, double * GRM, const char * basename,
+		const char * header_list[],  int n_headers, int per_chromosome, size_t n_subjects , size_t n_snps); 
+ 
+extern "C" void write_matrix_to_file(char * output_filename, pio_file_t * input_file,  double * GRM, size_t n_subjects){
+
+	ofstream output_file(output_filename);
 	pio_sample_t * row_sample;
 	pio_sample_t * col_sample;
 	output_file << "IDA,IDB,KIN\n";
@@ -317,12 +49,12 @@ static void write_matrix_to_file(string output_filename, pio_file_t * input_file
 			col_sample = fam_get_sample(&input_file->fam_file, col);
 			string col_id = col_sample->iid;
 
-			if(row_id.compare(col_id) == 1){
-				output_file << row_id << "," << col_id << "," << (long double)GRM[row][col] << "\n";
-				output_file << col_id << "," << row_id << "," << (long double)GRM[row][col] << "\n";
+			if(row_id != col_id){
+				output_file << row_id << "," << col_id << "," << GRM[row*n_subjects + col] << "\n";
+				output_file << col_id << "," << row_id << "," << GRM[row*n_subjects + col]  << "\n";
 
 			}else{
-				output_file << row_id << "," << col_id << "," <<  (long double)GRM[row][col] << "\n";
+				output_file << row_id << "," << col_id << "," << GRM[row*n_subjects + col]  << "\n";
 			}
 
 
@@ -330,17 +62,16 @@ static void write_matrix_to_file(string output_filename, pio_file_t * input_file
 	}
 	output_file.close();
 }
-static void print_help(){
-  printf("Use: help pedifromsnps\n");
-}
-extern "C" int Runpedfromsnps(ClientData clientData, Tcl_Interp *interp,
-                                         int argc,const char *argv[]){
-	  if(argc != 5 && argc != 6 && argc != 8 && argc != 2){
-	      printf("Invalid number of arguments\n");
-	      print_help();
-	      return TCL_OK;
-	  }
 
+
+static void print_help(Tcl_Interp * interp){
+  Solar_Eval(interp, "help pedifromsnps");
+
+}
+
+
+extern "C" int pedfromsnpsCmd(ClientData clientData, Tcl_Interp *interp,
+                                         int argc,const char *argv[]){
 
 	  string args[argc];
 
@@ -353,13 +84,14 @@ extern "C" int Runpedfromsnps(ClientData clientData, Tcl_Interp *interp,
 
 	  string header_filename;
 	  bool is_header = false;
+	  int per_chromosome = false;
 	  //Processing commandline arguments
 	  for(int i = 1 ; i < argc ;i++){
 	      string lower_version = to_lower(args[i]);
 	      if(lower_version.compare("--help") == 0 || lower_version.compare("-help")  == 0 ||
 		  lower_version.compare("-h")  == 0 || lower_version.compare("help")  == 0
 		  || lower_version.compare("--h") == 0){
-		  print_help();
+		  print_help(interp);
 	          return EXIT_SUCCESS;
 	      }else if (lower_version.compare("-i") == 0 ||
 		  lower_version.compare("--i") == 0 ||
@@ -373,7 +105,7 @@ extern "C" int Runpedfromsnps(ClientData clientData, Tcl_Interp *interp,
 
 		  }else{
 		      printf("No input file specified.\n");
-		      print_help();
+		      print_help(interp);
 	              return TCL_ERROR;
 		  }
 
@@ -389,7 +121,7 @@ extern "C" int Runpedfromsnps(ClientData clientData, Tcl_Interp *interp,
 		  }else{
 
 		      printf("No output file specified.\n");
-		      print_help();
+		      print_help(interp);
 	              return TCL_ERROR;
 		  }
 
@@ -405,9 +137,14 @@ extern "C" int Runpedfromsnps(ClientData clientData, Tcl_Interp *interp,
 			  is_header = true;
 
 
-	      }else{
-		  printf("Argument %s is not a valid argument.\n", args[i].c_str());
-		  print_help();
+	      }else if (lower_version.compare("--perchromo") == 0 || lower_version.compare("-perchromo") == 0){
+			  
+			  per_chromosome = 1;
+			  
+			  
+		  }else{
+			printf("Argument %s is not a valid argument.\n", args[i].c_str());
+			print_help(interp);
 	          return TCL_ERROR;
 	      }
 
@@ -468,33 +205,25 @@ extern "C" int Runpedfromsnps(ClientData clientData, Tcl_Interp *interp,
 	  size_t n_snps = pio_num_loci(&input);
 
 
-	  vector< vector<long double> > GRM;
-
-	  for(size_t i = 0 ; i < n_subjects; ++i){
-		  vector <long double> GRM_row(n_subjects);
-		  GRM.push_back(GRM_row);
-
-	  }
+	  double * GRM = new  double[n_subjects*n_subjects];
+	  memset(GRM, 0, sizeof(double)*n_subjects*n_subjects);
 
 	  if(is_header){
-		  vector<string>header_list = read_headers(header_filename);
-		  create_relationship_matrix_with_header(&input, GRM,
-			header_list, n_subjects , n_snps);
+		  vector<const char *>header_list = read_headers(header_filename);
+		  create_relationship_matrix_with_header(&input, GRM, output_basename.c_str(), 
+			header_list.data(),header_list.size(), per_chromosome,n_subjects , n_snps);
 	  }else{
-		  create_relationship_matrix(&input, GRM,  n_subjects ,  n_snps);
+		  create_relationship_matrix(&input,  output_basename.c_str(), GRM,per_chromosome, n_subjects  ,  n_snps);
 	  }
 
-	  write_matrix_to_file(output_basename, &input, GRM, n_subjects);
+	 
 
 	  pio_close(&input);
-	 // delete [] GRM;
+	  delete [] GRM;
 
 	  return TCL_OK;
 
 
 
 }
-
-
-#undef SQUARED
 

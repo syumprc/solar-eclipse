@@ -19,12 +19,14 @@ void delete_ped_state (void);
 extern "C" int PedigreeCmd (ClientData clientData, Tcl_Interp *interp,
 		  int argc, char *argv[])
 {
+    int unloading = 0;
     if (argc == 2 && !StringCmp ("help", argv[1], case_ins)) {
 	return Solar_Eval (interp, "help pedigree");
     }
 
-    else if (argc >= 2 && !StringCmp ("load", argv[1], case_ins)) {
-        if (argc == 2) {
+    else if (argc >= 2 && (!StringCmp ("load", argv[1], case_ins)) ||
+	     (unloading = (!StringCmp ("unload", argv[1], case_ins)))) {
+        if (argc == 2 && !unloading) {
             RESULT_LIT ("Usage: pedigree load <filename>");
             return TCL_ERROR;
         }
@@ -61,13 +63,19 @@ extern "C" int PedigreeCmd (ClientData clientData, Tcl_Interp *interp,
                 }
 
                 delete currentPed;
+		currentPed = 0;
             }
             delete_ped_state();
             Phenotypes::reset();
         }
 
+	if (unloading) {
+	  return TCL_OK;
+	}
+
         currentPed = new Pedigree (argv[2]);
-        printf("Loading pedigree data from the file %s ...\n", argv[2]);
+	
+	printf("Loading pedigree data from the file %s ...\n", argv[2]);
         fflush(stdout);
 
         if (currentPed->load(all_founders, interp) == TCL_ERROR) {
