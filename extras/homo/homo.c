@@ -165,17 +165,17 @@ char	delimChar
 	} else {	/*space-delimited file*/
 
 		/*header line*/
-		fscanf(fp, "%*s %*s");
+        if (fscanf(fp, "%*s %*s")) {};
 		for (itheta=0; itheta < nthetas; itheta++) {
-			fscanf(fp, "%lf", &thetas[itheta]);
+            if(fscanf(fp, "%lf", &thetas[itheta])) {};
 		};
 		line = fgets(line, MAXCHLINE, fp);
 
 		/*pedigree data*/
 		for (iped = 0; iped < npeds; iped++) {
-			fscanf(fp, "%s %lf", peds[iped].id, &peds[iped].lnL0);
+            if (fscanf(fp, "%s %lf", peds[iped].id, &peds[iped].lnL0)) {};
 			for (itheta=0; itheta < nthetas; itheta++) {
-				fscanf(fp, "%lf", &peds[iped].lnL1grid[itheta]);
+                if (fscanf(fp, "%lf", &peds[iped].lnL1grid[itheta])) {};
 			};
 			line = fgets(line, MAXCHLINE, fp);
 		};
